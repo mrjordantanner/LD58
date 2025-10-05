@@ -18,6 +18,11 @@ public class PlayerCharacter : Character
 
     public LayerMask obstacleLayer;
 
+    [Header("Character Graphics")]
+    public SpriteRenderer graphicBack;
+    public SpriteRenderer graphicTopLeft, graphicTopRight, graphicBottomLeft, graphicBottomRight;
+
+
     void Awake()
     {
         if (!rb) rb = GetComponent<Rigidbody2D>();

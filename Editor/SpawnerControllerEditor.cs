@@ -127,30 +127,37 @@ public class SpawnerControllerEditor : Editor
             EditorGUILayout.HelpBox("Statistics available only during play mode", MessageType.Info);
         }
 
-        EditorGUILayout.Space(10);
 
-        // Global controls
-        EditorGUILayout.LabelField("Global Controls", EditorStyles.miniBoldLabel);
+        EditorGUILayout.Space(5);
+
+        // VFX Debugging
+        EditorGUILayout.LabelField("VFX Debugging", EditorStyles.miniBoldLabel);
+
+        // VFX object warning
+        if (spawnerController.BallSpawnVFXObject == null)
+        {
+            EditorGUILayout.HelpBox("BallSpawnVFXObject is not assigned! Please assign a VFX prefab.", MessageType.Warning);
+        }
 
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Enable Spawning"))
+        if (GUILayout.Button("Debug VFX Spawning", GUILayout.Height(25)))
         {
-            SetGlobalSpawnEnabled(true);
+            DebugVFXSpawning();
         }
-        if (GUILayout.Button("Disable Spawning"))
+        if (GUILayout.Button("Test Complete Round Flow", GUILayout.Height(25)))
         {
-            SetGlobalSpawnEnabled(false);
+            TestCompleteRoundFlow();
         }
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("Start Random Spawning"))
+        if (GUILayout.Button("Test VFX Only", GUILayout.Height(25)))
         {
-            StartRandomSpawning();
+            TestVFXOnly();
         }
-        if (GUILayout.Button("Stop Random Spawning"))
+        if (GUILayout.Button("Test VFX Position", GUILayout.Height(25)))
         {
-            StopRandomSpawning();
+            TestVFXPosition();
         }
         EditorGUILayout.EndHorizontal();
 
@@ -181,15 +188,9 @@ public class SpawnerControllerEditor : Editor
             if (spawnerController.isRoundActive)
             {
                 EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Round Progress:", GUILayout.Width(80));
-                float progress = spawnerController.GetRoundProgress();
-                EditorGUILayout.LabelField($"{progress:P1}");
-                EditorGUILayout.EndHorizontal();
-
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField("Time Remaining:", GUILayout.Width(80));
-                float remaining = spawnerController.GetRemainingRoundTime();
-                EditorGUILayout.LabelField($"{remaining:F1}s");
+                EditorGUILayout.LabelField("Round Timer:", GUILayout.Width(80));
+                float timer = spawnerController.GetRoundTimer();
+                EditorGUILayout.LabelField($"{timer:F1}s");
                 EditorGUILayout.EndHorizontal();
             }
         }
@@ -370,44 +371,6 @@ public class SpawnerControllerEditor : Editor
         }
     }
 
-    private void SetGlobalSpawnEnabled(bool enabled)
-    {
-        if (Application.isPlaying)
-        {
-            spawnerController.SetGlobalSpawnEnabled(enabled);
-        }
-        else
-        {
-            Debug.LogWarning("SpawnerControllerEditor: Can only control spawn during play mode");
-        }
-    }
-
-    private void StartRandomSpawning()
-    {
-        if (Application.isPlaying)
-        {
-            spawnerController.SetGlobalSpawnEnabled(true);
-            spawnerController.useRandomInterval = true;
-            Debug.Log("SpawnerControllerEditor: Started random spawning");
-        }
-        else
-        {
-            Debug.LogWarning("SpawnerControllerEditor: Can only start spawning during play mode");
-        }
-    }
-
-    private void StopRandomSpawning()
-    {
-        if (Application.isPlaying)
-        {
-            spawnerController.SetGlobalSpawnEnabled(false);
-            Debug.Log("SpawnerControllerEditor: Stopped random spawning");
-        }
-        else
-        {
-            Debug.LogWarning("SpawnerControllerEditor: Can only stop spawning during play mode");
-        }
-    }
 
     private void SetBouncyPreset()
     {
@@ -531,5 +494,233 @@ public class SpawnerControllerEditor : Editor
         {
             Debug.LogWarning("SpawnerControllerEditor: Can only end rounds during play mode");
         }
+    }
+
+    private void DebugVFXSpawning()
+    {
+        Debug.Log("=== VFX SPAWNING DEBUG ===");
+        
+        // Check VFX object assignment
+        if (spawnerController.BallSpawnVFXObject == null)
+        {
+            Debug.LogError("❌ BallSpawnVFXObject is NULL! Please assign a VFX prefab in the inspector.");
+            return;
+        }
+        else
+        {
+            Debug.Log($"✅ BallSpawnVFXObject assigned: {spawnerController.BallSpawnVFXObject.name}");
+        }
+        
+        // Check play area
+        if (spawnerController.playAreaCollider == null)
+        {
+            Debug.LogError("❌ playAreaCollider is NULL! Please assign a BoxCollider2D in the inspector.");
+            return;
+        }
+        else
+        {
+            Debug.Log($"✅ playAreaCollider assigned: {spawnerController.playAreaCollider.name}");
+        }
+        
+        // Check ball prefab
+        if (spawnerController.ballPrefab == null)
+        {
+            Debug.LogError("❌ ballPrefab is NULL! Please assign a ball prefab in the inspector.");
+            return;
+        }
+        else
+        {
+            Debug.Log($"✅ ballPrefab assigned: {spawnerController.ballPrefab.name}");
+        }
+        
+        // Check current parameters
+        Debug.Log($"Current Parameters:");
+        Debug.Log($"  - Anticipation: {spawnerController.anticipationMinDuration}s - {spawnerController.anticipationMaxDuration}s");
+        Debug.Log($"  - VFX Lifespan: {spawnerController.ballSpawnVFXLifespan}s");
+        Debug.Log($"  - Velocity: {spawnerController.minVelocity} - {spawnerController.maxVelocity}");
+        Debug.Log($"  - Round Active: {spawnerController.isRoundActive}");
+        
+        // Test VFX instantiation
+        Vector2 testPosition = GetRandomSpawnPosition();
+        Debug.Log($"Testing VFX at position: {testPosition}");
+        
+        GameObject testVFX = Instantiate(spawnerController.BallSpawnVFXObject, testPosition, Quaternion.identity);
+        testVFX.name = $"DebugVFX_{Time.time:F1}";
+        
+        Debug.Log($"✅ VFX instantiated successfully: {testVFX.name}");
+        
+        // Destroy after 2 seconds for testing
+        Destroy(testVFX, 2f);
+        
+        Debug.Log("=== END VFX DEBUG ===");
+    }
+
+    private void TestCompleteRoundFlow()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("SpawnerControllerEditor: Can only test round flow during play mode");
+            return;
+        }
+
+        Debug.Log("=== TESTING COMPLETE ROUND FLOW ===");
+        
+        if (spawnerController.isRoundActive)
+        {
+            Debug.LogWarning("Round is already active! Ending current round first.");
+            spawnerController.EndRound();
+        }
+        
+        spawnerController.StartCoroutine(DebugRoundFlow());
+    }
+
+    private System.Collections.IEnumerator DebugRoundFlow()
+    {
+        Debug.Log("🚀 Starting debug round flow...");
+        
+        // Step 1: Choose spawn point
+        Vector2 spawnPosition = GetRandomSpawnPosition();
+        Debug.Log($"📍 Spawn position selected: {spawnPosition}");
+        
+        // Step 2: Anticipation pause
+        float anticipationDuration = Random.Range(spawnerController.anticipationMinDuration, spawnerController.anticipationMaxDuration);
+        Debug.Log($"⏱️ Anticipation pause: {anticipationDuration:F1}s");
+        yield return new WaitForSeconds(anticipationDuration);
+        
+        // Step 3: Spawn VFX
+        if (spawnerController.BallSpawnVFXObject != null)
+        {
+            Debug.Log($"🎆 Spawning VFX at {spawnPosition}");
+            GameObject vfx = Instantiate(spawnerController.BallSpawnVFXObject, spawnPosition, Quaternion.identity);
+            vfx.name = $"DebugVFX_{Time.time:F1}";
+            
+            // Check if VFX has any components
+           // var components = vfx.GetComponents<Component>();
+            //Debug.Log($"VFX Components: {string.Join(", ", components.Select(c => c.GetType().Name))}");
+            
+            // Check if VFX has any children
+            if (vfx.transform.childCount > 0)
+            {
+                Debug.Log($"VFX has {vfx.transform.childCount} children");
+                for (int i = 0; i < vfx.transform.childCount; i++)
+                {
+                    var child = vfx.transform.GetChild(i);
+                    Debug.Log($"  Child {i}: {child.name} (Active: {child.gameObject.activeInHierarchy})");
+                }
+            }
+            
+            // Destroy VFX after lifespan
+            Destroy(vfx, spawnerController.ballSpawnVFXLifespan);
+            Debug.Log($"✅ VFX spawned, will destroy in {spawnerController.ballSpawnVFXLifespan}s");
+        }
+        else
+        {
+            Debug.LogError("❌ BallSpawnVFXObject is null!");
+        }
+        
+        // Step 4: Wait for VFX duration
+        Debug.Log($"⏳ Waiting {spawnerController.ballSpawnVFXLifespan}s for VFX...");
+        yield return new WaitForSeconds(spawnerController.ballSpawnVFXLifespan);
+        
+        // Step 5: Spawn ball
+        Debug.Log($"⚽ Spawning ball at {spawnPosition}");
+        GameObject ball = Instantiate(spawnerController.ballPrefab, spawnPosition, Quaternion.identity);
+        ball.name = $"DebugBall_{spawnerController.totalBallsSpawned}";
+        spawnerController.totalBallsSpawned++;
+        
+        spawnerController.ConfigureBall(ball);
+        Debug.Log($"✅ Ball spawned and configured: {ball.name}");
+        
+        Debug.Log("🎉 Debug round flow completed!");
+    }
+
+    private void TestVFXOnly()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("SpawnerControllerEditor: Can only test VFX during play mode");
+            return;
+        }
+
+        if (spawnerController.BallSpawnVFXObject == null)
+        {
+            Debug.LogError("❌ BallSpawnVFXObject is not assigned!");
+            return;
+        }
+
+        Vector2 testPosition = GetRandomSpawnPosition();
+        Debug.Log($"🎆 Testing VFX only at position: {testPosition}");
+        
+        GameObject vfx = Instantiate(spawnerController.BallSpawnVFXObject, testPosition, Quaternion.identity);
+        vfx.name = $"TestVFX_{Time.time:F1}";
+        
+        // Check VFX components and children
+       // var components = vfx.GetComponents<Component>();
+       // Debug.Log($"VFX Components: {string.Join(", ", components.Select(c => c.GetType().Name))}");
+        
+        if (vfx.transform.childCount > 0)
+        {
+            Debug.Log($"VFX has {vfx.transform.childCount} children");
+            for (int i = 0; i < vfx.transform.childCount; i++)
+            {
+                var child = vfx.transform.GetChild(i);
+                Debug.Log($"  Child {i}: {child.name} (Active: {child.gameObject.activeInHierarchy})");
+            }
+        }
+        
+        // Destroy after 3 seconds
+        Destroy(vfx, 3f);
+        Debug.Log("✅ VFX test completed - will destroy in 3 seconds");
+    }
+
+    private void TestVFXPosition()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("SpawnerControllerEditor: Can only test VFX position during play mode");
+            return;
+        }
+
+        if (spawnerController.BallSpawnVFXObject == null)
+        {
+            Debug.LogError("❌ BallSpawnVFXObject is not assigned!");
+            return;
+        }
+
+        // Test multiple positions
+        for (int i = 0; i < 5; i++)
+        {
+            Vector2 testPosition = GetRandomSpawnPosition();
+            Debug.Log($"🎆 Testing VFX position {i + 1}: {testPosition}");
+            
+            GameObject vfx = Instantiate(spawnerController.BallSpawnVFXObject, testPosition, Quaternion.identity);
+            vfx.name = $"PositionTestVFX_{i + 1}_{Time.time:F1}";
+            
+            // Destroy after 2 seconds
+            Destroy(vfx, 2f);
+        }
+        
+        Debug.Log("✅ VFX position test completed - 5 VFX objects spawned at random positions");
+    }
+
+    private Vector2 GetRandomSpawnPosition()
+    {
+        if (spawnerController.playAreaCollider == null)
+        {
+            Debug.LogWarning("SpawnerControllerEditor: No play area collider, using origin");
+            return Vector2.zero;
+        }
+
+        Bounds bounds = spawnerController.playAreaCollider.bounds;
+        
+        // Add some margin from the edges
+        float margin = 0.5f;
+        Vector2 min = new Vector2(bounds.min.x + margin, bounds.min.y + margin);
+        Vector2 max = new Vector2(bounds.max.x - margin, bounds.max.y - margin);
+        
+        return new Vector2(
+            Random.Range(min.x, max.x),
+            Random.Range(min.y, max.y)
+        );
     }
 }

@@ -33,20 +33,7 @@ public class SpawnerController : MonoBehaviour, IInitializable
     public float ballSpawnVFXLifespan = 1f;
     public bool isRoundActive = false;
     public float roundTimer = 0f;
-    public float roundDuration = 30f; // Default round duration, can be configured per round
 
-    [Header("Spawner Management")]
-    public List<Spawner> activeSpawners = new List<Spawner>();
-    public bool autoFindSpawners = true;
-    public bool autoEnableSpawners = false;
-    
-    [Header("Global Spawn Settings")]
-    public bool globalSpawnEnabled = true;
-    public float globalSpawnInterval = 5f;
-    public bool useRandomInterval = false;
-    public float minInterval = 3f;
-    public float maxInterval = 7f;
-    public bool spawnOnStart = false;
     
     [Header("Ball Physics Settings")]
     public GameObject ballPrefab;
@@ -76,130 +63,34 @@ public class SpawnerController : MonoBehaviour, IInitializable
     [Header("Debug")]
     public bool showDebugInfo = true;
     [ReadOnly] public int totalBallsSpawned = 0;
-    [ReadOnly] public float spawnTimer = 0f;
 
     public IEnumerator Init()
     {
-        // Find all spawners in the scene (for backward compatibility)
-        if (autoFindSpawners)
-        {
-            FindAllSpawners();
-        }
-        
-        // Auto-enable spawning if requested
-        if (spawnOnStart)
-        {
-            globalSpawnEnabled = true;
-        }
-        
-        // Set initial random interval if using random timing
-        if (useRandomInterval)
-        {
-            SetRandomInterval();
-        }
-        
         yield return new WaitForSecondsRealtime(0);
     }
     
     private void Update()
     {
-        // Handle round timer
+        // Handle round timer (just for tracking, no limit)
         if (isRoundActive)
         {
             roundTimer += Time.deltaTime;
-            
-            // Check if round should end
-            if (roundTimer >= roundDuration)
-            {
-                EndRound();
-            }
-        }
-        
-        // Handle automatic spawning (only when not in round mode)
-        if (!globalSpawnEnabled || isRoundActive) return;
-        
-        spawnTimer += Time.deltaTime;
-        
-        if (spawnTimer >= globalSpawnInterval)
-        {
-            SpawnBall();
-            spawnTimer = 0f; // Reset timer after spawning
-            
-            // Set new random interval if using random timing
-            if (useRandomInterval)
-            {
-                SetRandomInterval();
-            }
         }
     }
 
-    /// <summary>
-    /// Finds all Spawner components in the scene
-    /// </summary>
-    public void FindAllSpawners()
-    {
-        activeSpawners.Clear();
-        Spawner[] foundSpawners = FindObjectsOfType<Spawner>();
-        activeSpawners.AddRange(foundSpawners);
-        
-        Debug.Log($"SpawnerController: Found {activeSpawners.Count} spawners in scene");
-    }
-
-    /// <summary>
-    /// Adds a spawner to the active list
-    /// </summary>
-    public void RegisterSpawner(Spawner spawner)
-    {
-        if (!activeSpawners.Contains(spawner))
-        {
-            activeSpawners.Add(spawner);
-            Debug.Log($"SpawnerController: Registered spawner {spawner.name}");
-        }
-    }
-
-    /// <summary>
-    /// Removes a spawner from the active list
-    /// </summary>
-    public void UnregisterSpawner(Spawner spawner)
-    {
-        if (activeSpawners.Contains(spawner))
-        {
-            activeSpawners.Remove(spawner);
-            Debug.Log($"SpawnerController: Unregistered spawner {spawner.name}");
-        }
-    }
-
-    /// <summary>
-    /// Enables or disables spawning
-    /// </summary>
-    public void SetGlobalSpawnEnabled(bool enabled)
-    {
-        globalSpawnEnabled = enabled;
-        Debug.Log($"SpawnerController: Global spawn enabled set to {enabled}");
-    }
-
-    /// <summary>
-    /// Sets the spawn interval
-    /// </summary>
-    public void SetGlobalSpawnInterval(float interval)
-    {
-        globalSpawnInterval = interval;
-        Debug.Log($"SpawnerController: Spawn interval set to {interval}");
-    }
-    
-    /// <summary>
-    /// Sets a random spawn interval between min and max
-    /// </summary>
-    private void SetRandomInterval()
-    {
-        globalSpawnInterval = Random.Range(minInterval, maxInterval);
-    }
 
     /// <summary>
     /// Spawns a ball at a random position within the play area
     /// </summary>
     public GameObject SpawnBall()
     {
+        // Don't spawn if game is in menu state
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameState.MainMenu)
+        {
+            Debug.LogWarning("SpawnerController: Cannot spawn ball - game is in menu state");
+            return null;
+        }
+        
         if (ballPrefab == null)
         {
             Debug.LogError("SpawnerController: Ball prefab is not assigned!");
@@ -216,6 +107,9 @@ public class SpawnerController : MonoBehaviour, IInitializable
 
         // Configure the ball with random physics properties
         ConfigureBall(ball);
+        
+        // Apply current theme accent color to the ball
+        ApplyThemeToBall(ball);
 
         Debug.Log($"SpawnerController: Spawned ball at {spawnPosition}");
         return ball;
@@ -317,28 +211,23 @@ public class SpawnerController : MonoBehaviour, IInitializable
     /// </summary>
     public void ResetSpawnSystem()
     {
-        spawnTimer = 0f;
         totalBallsSpawned = 0;
-        if (useRandomInterval)
-        {
-            SetRandomInterval();
-        }
         Debug.Log("SpawnerController: Reset spawn system");
     }
     
-    /// <summary>
-    /// Manually trigger a spawn
-    /// </summary>
-    public void TriggerSpawn()
-    {
-        SpawnBall();
-    }
 
     /// <summary>
     /// Starts a new round with anticipation and VFX
     /// </summary>
     public void StartRound()
     {
+        // Don't start round if game is in menu state
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameState.MainMenu)
+        {
+            Debug.LogWarning("SpawnerController: Cannot start round - game is in menu state");
+            return;
+        }
+        
         if (isRoundActive)
         {
             Debug.LogWarning("SpawnerController: Round is already active!");
@@ -382,31 +271,13 @@ public class SpawnerController : MonoBehaviour, IInitializable
     }
 
     /// <summary>
-    /// Gets the current round progress (0-1)
+    /// Gets the current round timer value
     /// </summary>
-    public float GetRoundProgress()
+    public float GetRoundTimer()
     {
-        if (!isRoundActive) return 0f;
-        return Mathf.Clamp01(roundTimer / roundDuration);
+        return isRoundActive ? roundTimer : 0f;
     }
 
-    /// <summary>
-    /// Gets the remaining round time
-    /// </summary>
-    public float GetRemainingRoundTime()
-    {
-        if (!isRoundActive) return 0f;
-        return Mathf.Max(0f, roundDuration - roundTimer);
-    }
-
-    /// <summary>
-    /// Sets the round duration
-    /// </summary>
-    public void SetRoundDuration(float duration)
-    {
-        roundDuration = duration;
-        Debug.Log($"SpawnerController: Round duration set to {duration} seconds");
-    }
 
     /// <summary>
     /// Coroutine that handles the round flow: anticipation -> VFX -> ball spawn
@@ -468,6 +339,22 @@ public class SpawnerController : MonoBehaviour, IInitializable
             float margin = 0.5f;
             Vector3 marginSize = bounds.size - Vector3.one * margin * 2;
             Gizmos.DrawWireCube(bounds.center, marginSize);
+        }
+    }
+
+    /// <summary>
+    /// Applies the current theme accent color to a ball
+    /// </summary>
+    /// <param name="ball">The ball to apply theme to</param>
+    private void ApplyThemeToBall(GameObject ball)
+    {
+        if (ThemeController.Instance != null)
+        {
+            SpriteRenderer ballRenderer = ball.GetComponent<SpriteRenderer>();
+            if (ballRenderer != null)
+            {
+                ballRenderer.color = ThemeController.Instance.GetAccentColor();
+            }
         }
     }
 }

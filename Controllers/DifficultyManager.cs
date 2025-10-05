@@ -24,14 +24,9 @@ public class DifficultyManager : MonoBehaviour, IInitializable
 
     public string Name { get { return "DifficultyManager"; } }
 
-    [Header("Difficulty Curve Settings")]
+    [Header("Difficulty Settings")]
     public bool enableDifficultyScaling = true;
     public int maxLevel = 20;
-    public AnimationCurve velocityCurve = AnimationCurve.EaseInOut(0, 2f, 1, 15f);
-    public AnimationCurve anticipationCurve = AnimationCurve.EaseInOut(0, 1.8f, 1, 0.2f);
-    public AnimationCurve roundDurationCurve = AnimationCurve.EaseInOut(0, 45f, 1, 15f);
-    public AnimationCurve bouncinessRangeCurve = AnimationCurve.EaseInOut(0, 0.4f, 1, 1.8f);
-    public AnimationCurve gravityRangeCurve = AnimationCurve.EaseInOut(0, 0.4f, 1, 1.6f);
 
     [Header("Current Difficulty Parameters")]
     [ReadOnly] public int currentLevel = 1;
@@ -39,7 +34,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
     [ReadOnly] public float currentMaxVelocity = 4f;
     [ReadOnly] public float currentAnticipationMin = 1.2f;
     [ReadOnly] public float currentAnticipationMax = 1.8f;
-    [ReadOnly] public float currentRoundDuration = 45f;
     [ReadOnly] public float currentMinBounciness = 0.8f;
     [ReadOnly] public float currentMaxBounciness = 1.2f;
     [ReadOnly] public float currentMinGravityScale = 0.8f;
@@ -50,7 +44,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
     public float baseMaxVelocity = 4f;
     public float baseAnticipationMin = 1.2f;
     public float baseAnticipationMax = 1.8f;
-    public float baseRoundDuration = 45f;
     public float baseMinBounciness = 0.8f;
     public float baseMaxBounciness = 1.2f;
     public float baseMinGravityScale = 0.8f;
@@ -61,7 +54,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
     public float maxMaxVelocity = 15f;
     public float maxAnticipationMin = 0.2f;
     public float maxAnticipationMax = 0.5f;
-    public float maxRoundDuration = 15f;
     public float maxMinBounciness = 0.2f;
     public float maxMaxBounciness = 2.0f;
     public float maxMinGravityScale = 0.2f;
@@ -105,25 +97,28 @@ public class DifficultyManager : MonoBehaviour, IInitializable
         // Calculate normalized level (0-1)
         float normalizedLevel = (float)(currentLevel - 1) / (maxLevel - 1);
         
-        // Apply curves to get current values
-        currentMinVelocity = Mathf.Lerp(baseMinVelocity, maxMinVelocity, velocityCurve.Evaluate(normalizedLevel));
-        currentMaxVelocity = Mathf.Lerp(baseMaxVelocity, maxMaxVelocity, velocityCurve.Evaluate(normalizedLevel));
+        // Use simple linear interpolation instead of curves
+        currentMinVelocity = Mathf.Lerp(baseMinVelocity, maxMinVelocity, normalizedLevel);
+        currentMaxVelocity = Mathf.Lerp(baseMaxVelocity, maxMaxVelocity, normalizedLevel);
         
-        currentAnticipationMin = Mathf.Lerp(baseAnticipationMin, maxAnticipationMin, anticipationCurve.Evaluate(normalizedLevel));
-        currentAnticipationMax = Mathf.Lerp(baseAnticipationMax, maxAnticipationMax, anticipationCurve.Evaluate(normalizedLevel));
+        currentAnticipationMin = Mathf.Lerp(baseAnticipationMin, maxAnticipationMin, normalizedLevel);
+        currentAnticipationMax = Mathf.Lerp(baseAnticipationMax, maxAnticipationMax, normalizedLevel);
         
-        currentRoundDuration = Mathf.Lerp(baseRoundDuration, maxRoundDuration, roundDurationCurve.Evaluate(normalizedLevel));
+        // Calculate bounciness using direct base to max interpolation
+        currentMinBounciness = Mathf.Lerp(baseMinBounciness, maxMinBounciness, normalizedLevel);
+        currentMaxBounciness = Mathf.Lerp(baseMaxBounciness, maxMaxBounciness, normalizedLevel);
         
-        float bouncinessRange = Mathf.Lerp(0.4f, 1.8f, bouncinessRangeCurve.Evaluate(normalizedLevel));
-        currentMinBounciness = Mathf.Max(0.1f, 1f - bouncinessRange);
-        currentMaxBounciness = 1f + bouncinessRange;
-        
-        float gravityRange = Mathf.Lerp(0.4f, 1.6f, gravityRangeCurve.Evaluate(normalizedLevel));
-        currentMinGravityScale = Mathf.Max(0.1f, 1f - gravityRange);
-        currentMaxGravityScale = 1f + gravityRange;
+        // Calculate gravity using direct base to max interpolation
+        currentMinGravityScale = Mathf.Lerp(baseMinGravityScale, maxMinGravityScale, normalizedLevel);
+        currentMaxGravityScale = Mathf.Lerp(baseMaxGravityScale, maxMaxGravityScale, normalizedLevel);
 
         // Log the current difficulty parameters
         LogCurrentDifficultyParameters();
+        
+        // Force inspector refresh
+        #if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(this);
+        #endif
     }
 
     /// <summary>
@@ -136,7 +131,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
         currentMaxVelocity = baseMaxVelocity;
         currentAnticipationMin = baseAnticipationMin;
         currentAnticipationMax = baseAnticipationMax;
-        currentRoundDuration = baseRoundDuration;
         currentMinBounciness = baseMinBounciness;
         currentMaxBounciness = baseMaxBounciness;
         currentMinGravityScale = baseMinGravityScale;
@@ -151,7 +145,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
         Debug.Log($"=== DIFFICULTY LEVEL {currentLevel} ===");
         Debug.Log($"Velocity Range: {currentMinVelocity:F1} - {currentMaxVelocity:F1}");
         Debug.Log($"Anticipation Time: {currentAnticipationMin:F1}s - {currentAnticipationMax:F1}s");
-        Debug.Log($"Round Duration: {currentRoundDuration:F1}s");
         Debug.Log($"Bounciness Range: {currentMinBounciness:F1} - {currentMaxBounciness:F1}");
         Debug.Log($"Gravity Range: {currentMinGravityScale:F1} - {currentMaxGravityScale:F1}");
         Debug.Log("================================");
@@ -177,9 +170,6 @@ public class DifficultyManager : MonoBehaviour, IInitializable
         // Apply anticipation settings
         spawnerController.anticipationMinDuration = currentAnticipationMin;
         spawnerController.anticipationMaxDuration = currentAnticipationMax;
-        
-        // Apply round duration
-        spawnerController.SetRoundDuration(currentRoundDuration);
         
         // Apply physics settings
         spawnerController.minBounciness = currentMinBounciness;
@@ -223,6 +213,50 @@ public class DifficultyManager : MonoBehaviour, IInitializable
         UpdateDifficultyParameters(1);
         ApplyDifficultyToSpawnerController();
     }
+
+    /// <summary>
+    /// Tests and logs difficulty scaling across all levels
+    /// </summary>
+    [ContextMenu("Test Difficulty Scaling")]
+    public void TestDifficultyScaling()
+    {
+        Debug.Log("=== TESTING DIFFICULTY SCALING ACROSS ALL LEVELS ===");
+        
+        for (int level = 1; level <= maxLevel; level++)
+        {
+            UpdateDifficultyParameters(level);
+            Debug.Log($"Level {level,2}: Vel({currentMinVelocity:F1}-{currentMaxVelocity:F1}) " +
+                     $"Ant({currentAnticipationMin:F1}-{currentAnticipationMax:F1}s) " +
+                     $"Bounce({currentMinBounciness:F1}-{currentMaxBounciness:F1}) " +
+                     $"Grav({currentMinGravityScale:F1}-{currentMaxGravityScale:F1})");
+        }
+        
+        Debug.Log("=== END DIFFICULTY SCALING TEST ===");
+    }
+
+    /// <summary>
+    /// Simple test to verify the method is working
+    /// </summary>
+    [ContextMenu("Test Simple Values")]
+    public void TestSimpleValues()
+    {
+        Debug.Log("=== SIMPLE TEST ===");
+        Debug.Log($"Before: currentMinVelocity = {currentMinVelocity}, currentMaxVelocity = {currentMaxVelocity}");
+        
+        // Force set some test values
+        currentMinVelocity = 999f;
+        currentMaxVelocity = 888f;
+        
+        Debug.Log($"After manual set: currentMinVelocity = {currentMinVelocity}, currentMaxVelocity = {currentMaxVelocity}");
+        
+        // Now test the method
+        UpdateDifficultyParameters(5);
+        
+        Debug.Log($"After UpdateDifficultyParameters(5): currentMinVelocity = {currentMinVelocity}, currentMaxVelocity = {currentMaxVelocity}");
+        Debug.Log("=== END SIMPLE TEST ===");
+    }
+
+
 
     private void OnDrawGizmos()
     {

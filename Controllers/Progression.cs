@@ -58,18 +58,14 @@ public class Progression : MonoBehaviour, IInitializable
     public System.Collections.IEnumerator Init()
     {
         Debug.Log("Progression: Initializing...");
-        
-        // Initialize spawner
-        InitializeSpawner();
-        
+
         // Subscribe to events
         SubscribeToEvents();
         
         if (disableProgression)
         {
-            // Testing mode: enable spawner as timed spawner and spawn on start
+            // Testing mode: progression disabled, SpawnerController handles spawning manually
             Debug.Log("Progression: Testing mode enabled - progression disabled");
-            EnableTestingMode();
         }
         else
         {
@@ -81,48 +77,6 @@ public class Progression : MonoBehaviour, IInitializable
         yield return new WaitForSecondsRealtime(0);
     }
 
-    private void InitializeSpawner()
-    {
-        // Spawner is now handled by SpawnerController
-        if (SpawnerController.Instance != null)
-        {
-            // Disable spawning initially
-            SpawnerController.Instance.SetGlobalSpawnEnabled(false);
-            Debug.Log("Progression: SpawnerController initialized and disabled");
-        }
-        else
-        {
-            Debug.LogWarning("Progression: No SpawnerController found!");
-        }
-    }
-
-    private void EnableTestingMode()
-    {
-        if (SpawnerController.Instance != null)
-        {
-            // In testing mode, keep spawning disabled by default
-            // Let SpawnerController handle spawning manually
-            SpawnerController.Instance.SetGlobalSpawnEnabled(false);
-            
-            Debug.Log("Progression: Testing mode - spawning disabled, use SpawnerController for manual spawning");
-        }
-        else
-        {
-            Debug.LogWarning("Progression: Cannot enable testing mode - no SpawnerController found!");
-        }
-    }
-
-    private void ForceSpawnCollectibles()
-    {
-        if (SpawnerController.Instance != null)
-        {
-            SpawnerController.Instance.TriggerSpawn();
-        }
-        else
-        {
-            Debug.LogWarning("Progression: Cannot spawn collectibles - no SpawnerController found!");
-        }
-    }
 
     private void SubscribeToEvents()
     {
@@ -157,6 +111,17 @@ public class Progression : MonoBehaviour, IInitializable
         else
         {
             Debug.LogWarning("Progression: No DifficultyManager found! Difficulty will not be scaled.");
+        }
+        
+        // Apply theme for this level
+        if (ThemeController.Instance != null)
+        {
+            ThemeController.Instance.ApplyThemeForLevel(levelNumber);
+            Debug.Log($"Progression: Applied theme for level {levelNumber}");
+        }
+        else
+        {
+            Debug.LogWarning("Progression: No ThemeController found! Theme will not be applied.");
         }
         
         Debug.Log($"Progression: Initialized Level {levelNumber} (Difficulty: {levelDifficulty:F2})");
@@ -245,6 +210,14 @@ public class Progression : MonoBehaviour, IInitializable
         
         isLevelActive = false;
         
+        // End the SpawnerController round if active
+        if (isRoundActive && SpawnerController.Instance != null)
+        {
+            SpawnerController.Instance.EndRound();
+            isRoundActive = false;
+            Debug.Log("Progression: Ended SpawnerController round due to level failure");
+        }
+        
         Debug.Log($"Progression: Level {currentLevel} failed!");
         
         // Trigger level failed event
@@ -274,10 +247,16 @@ public class Progression : MonoBehaviour, IInitializable
         
         Debug.Log($"Progression: Round state set. isRoundActive: {isRoundActive}");
         
-        // Force spawn collectibles for this round
-        ForceSpawnCollectibles();
-        
-        Debug.Log($"Progression: Started Round {currentLevel}-{roundNumber}");
+        // Start the SpawnerController round flow (anticipation -> VFX -> ball spawn)
+        if (SpawnerController.Instance != null)
+        {
+            SpawnerController.Instance.StartRound();
+            Debug.Log($"Progression: Started SpawnerController round flow for Round {currentLevel}-{roundNumber}");
+        }
+        else
+        {
+            Debug.LogWarning("Progression: No SpawnerController found! Cannot start round flow.");
+        }
 
         // Trigger round started event
         EventManager.Instance.TriggerEvent(EventManager.ROUND_STARTED, currentRoundData);
@@ -298,6 +277,13 @@ public class Progression : MonoBehaviour, IInitializable
         isRoundActive = false;
         roundsCompletedInCurrentLevel++;
         totalRoundsCompleted++;
+        
+        // End the SpawnerController round
+        if (SpawnerController.Instance != null)
+        {
+            SpawnerController.Instance.EndRound();
+            Debug.Log("Progression: Ended SpawnerController round");
+        }
         
         Debug.Log($"Progression: Round {currentLevel}-{currentRound} completed! Starting success sequence...");
         

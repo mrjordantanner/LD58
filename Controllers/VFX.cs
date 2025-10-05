@@ -35,13 +35,13 @@ public class VFX : MonoBehaviour
     public GameObject BackgroundGraphics;
 
     [HideInInspector] public ColorAdjustments colorAdjustments;
+    [HideInInspector] public SpriteRenderer backgroundSpriteRenderer;
 
     void Init()
     {
         VFXContainer = new GameObject("VFXContainer");
 
-        var backgroundSpriteRenderer = BackgroundGraphics.GetComponent<SpriteRenderer>();
-        backgroundSpriteRenderer.color = ThemeController.Instance.primaryDark;
+        backgroundSpriteRenderer = BackgroundGraphics.GetComponent<SpriteRenderer>();
     }
 
     public IEnumerator StartDamageEffects()
