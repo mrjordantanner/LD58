@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using System.Collections;
 
 /// <summary>
 /// Singleton controller that manages game progression through Levels and Rounds.
@@ -69,8 +70,8 @@ public class Progression : MonoBehaviour, IInitializable
         }
         else
         {
-            // Normal mode: initialize first level
-            InitializeLevel(1);
+            // Normal mode: level initialization will happen when game flow starts
+            Debug.Log("Progression: Ready for level initialization when game flow starts");
         }
         
         Debug.Log("Progression: Initialized");
@@ -131,6 +132,47 @@ public class Progression : MonoBehaviour, IInitializable
         
         // Start first round
         StartRound(1);
+    }
+
+    /// <summary>
+    /// Initialize a level without starting the first round
+    /// </summary>
+    /// <param name="levelNumber">The level number to initialize</param>
+    public void InitializeLevelWithoutStarting(int levelNumber)
+    {
+        Debug.Log($"Progression: InitializeLevelWithoutStarting({levelNumber}) called");
+        
+        // Reset level state
+        isLevelActive = true;
+        isRoundActive = false;
+        roundsCompletedInCurrentLevel = 0;
+        currentLevel = levelNumber;
+        
+        // Create level data
+        float levelDifficulty = baseDifficulty + (levelNumber - 1) * difficultyIncreasePerLevel;
+        currentLevelData = new Level(levelNumber, roundsPerLevel, levelDifficulty);
+        
+        // Update difficulty parameters for this level
+        if (DifficultyManager.Instance != null)
+        {
+            DifficultyManager.Instance.OnLevelStart(levelNumber);
+        }
+        else
+        {
+            Debug.LogWarning("Progression: No DifficultyManager found! Difficulty will not be scaled.");
+        }
+        
+        // Apply theme for this level
+        if (ThemeController.Instance != null)
+        {
+            ThemeController.Instance.ApplyThemeForLevel(levelNumber);
+            Debug.Log($"Progression: Applied theme for level {levelNumber}");
+        }
+        
+        // Trigger level started event
+        EventManager.Instance.TriggerEvent(EventManager.LEVEL_STARTED, currentLevelData);
+        
+        Debug.Log($"Progression: Initialized Level {levelNumber} without starting round (Difficulty: {levelDifficulty:F2})");
     }
 
     /// <summary>
@@ -201,28 +243,6 @@ public class Progression : MonoBehaviour, IInitializable
         Debug.Log("Progression: Level completion sequence complete");
     }
 
-    /// <summary>
-    /// Fail the current level
-    /// </summary>
-    public void FailLevel()
-    {
-        if (!isLevelActive) return;
-        
-        isLevelActive = false;
-        
-        // End the SpawnerController round if active
-        if (isRoundActive && SpawnerController.Instance != null)
-        {
-            SpawnerController.Instance.EndRound();
-            isRoundActive = false;
-            Debug.Log("Progression: Ended SpawnerController round due to level failure");
-        }
-        
-        Debug.Log($"Progression: Level {currentLevel} failed!");
-        
-        // Trigger level failed event
-        EventManager.Instance.TriggerEvent(EventManager.LEVEL_FAILED, currentLevelData);
-    }
     #endregion
 
     #region Round Management
@@ -231,7 +251,7 @@ public class Progression : MonoBehaviour, IInitializable
     /// </summary>
     public void StartRound(int roundNumber)
     {
-        //Debug.Log($"Progression: StartRound({roundNumber}) called. isLevelActive: {isLevelActive}");
+        Debug.Log($"Progression: StartRound({roundNumber}) called. isLevelActive: {isLevelActive}");
         
         if (!isLevelActive) 
         {
@@ -246,6 +266,13 @@ public class Progression : MonoBehaviour, IInitializable
         isRoundActive = true;
         
         Debug.Log($"Progression: Round state set. isRoundActive: {isRoundActive}");
+        
+        // Spawn player at the beginning of each new round
+        Debug.Log($"Progression: Starting round {roundNumber} - spawning player...");
+        if (PlayerManager.Instance != null)
+        {
+            PlayerManager.Instance.SpawnPlayer();
+        }
         
         // Start the SpawnerController round flow (anticipation -> VFX -> ball spawn)
         if (SpawnerController.Instance != null)
@@ -364,10 +391,20 @@ public class Progression : MonoBehaviour, IInitializable
     /// </summary>
     public void FailRound()
     {
+        Debug.Log($"****** Progression: FailRound() called - disableProgression: {disableProgression}, isRoundActive: {isRoundActive}");
+        
         // Skip progression logic if disabled (testing mode)
-        if (disableProgression) return;
+        if (disableProgression) 
+        {
+            Debug.Log("!!!! Progression: Round failure skipped - progression is disabled !!!!!!");
+            return;
+        }
 
-        if (!isRoundActive) return;
+        if (!isRoundActive) 
+        {
+            Debug.Log("!!!! Progression: Round failure skipped - no active round !!!!!!!");
+            return;
+        }
         
         isRoundActive = false;
         
@@ -380,18 +417,28 @@ public class Progression : MonoBehaviour, IInitializable
         }
         
         // Start the reset sequence coroutine
+        Debug.Log("Progression: Starting RoundFailureSequence coroutine...");
         StartCoroutine(RoundFailureSequence());
     }
 
     /// <summary>
     /// Handles the paced sequence for round failure and restart
     /// </summary>
-    private System.Collections.IEnumerator RoundFailureSequence()
+    private IEnumerator RoundFailureSequence()
     {
+        Debug.Log("======= Progression: RoundFailureSequence started  ====");
+        
         // Suspend input during failure sequence
         GameManager.Instance.inputSuspended = true;
         
-        // 1) Immediately destroy collectibles with VFX
+        // 1) Reset SpawnerController round state
+        Debug.Log("Progression: Resetting SpawnerController round state...");
+        if (SpawnerController.Instance != null)
+        {
+            SpawnerController.Instance.EndRound();
+        }
+        
+        // 2) Immediately destroy collectibles with VFX
         Debug.Log("Progression: Destroying collectibles...");
         Collectible[] collectibles = FindObjectsOfType<Collectible>();
         foreach (Collectible collectible in collectibles)
@@ -405,22 +452,22 @@ public class Progression : MonoBehaviour, IInitializable
         // Trigger round failed event
         EventManager.Instance.TriggerEvent(EventManager.ROUND_FAILED, currentRoundData);
         
-        // 2) Wait 1 second
+        // 3) Wait 1 second
         Debug.Log("Progression: Waiting 1 second...");
         yield return new WaitForSeconds(1f);
         
-        // 3) Despawn the player
+        // 4) Despawn the player
         Debug.Log("Progression: Despawning player...");
         if (PlayerManager.Instance != null)
         {
             PlayerManager.Instance.DespawnPlayer();
         }
         
-        // 4) Wait 1 second
+        // 5) Wait 1 second
         Debug.Log("Progression: Waiting 1 second...");
         yield return new WaitForSeconds(1f);
         
-        // 5) Respawn the player and start the round over
+        // 6) Respawn the player and start the round over
         Debug.Log("Progression: Respawning player and restarting round...");
         if (PlayerManager.Instance != null)
         {
@@ -428,6 +475,7 @@ public class Progression : MonoBehaviour, IInitializable
         }
         
         // Start the round over
+        Debug.Log($"Progression: Starting round {currentRound} over...");
         StartRound(currentRound);
         
         // Restore input - round failure sequence is complete

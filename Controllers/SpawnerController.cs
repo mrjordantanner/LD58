@@ -66,6 +66,11 @@ public class SpawnerController : MonoBehaviour, IInitializable
 
     public IEnumerator Init()
     {
+        // Reset round state to ensure clean initialization
+        isRoundActive = false;
+        roundTimer = 0f;
+        Debug.Log("SpawnerController: Initialized - round state reset");
+        
         yield return new WaitForSecondsRealtime(0);
     }
     
@@ -120,23 +125,30 @@ public class SpawnerController : MonoBehaviour, IInitializable
     /// </summary>
     private Vector2 GetRandomSpawnPosition()
     {
+        Debug.Log("SpawnerController: GetRandomSpawnPosition() called");
+        
         if (playAreaCollider == null)
         {
             Debug.LogWarning("SpawnerController: No play area collider assigned, using default position");
             return Vector2.zero;
         }
 
+        Debug.Log($"SpawnerController: Play area collider found: {playAreaCollider.name}");
         Bounds bounds = playAreaCollider.bounds;
+        Debug.Log($"SpawnerController: Play area bounds: {bounds}");
         
         // Add some margin from the edges to prevent spawning too close to walls
         float margin = 0.5f;
         Vector2 min = new Vector2(bounds.min.x + margin, bounds.min.y + margin);
         Vector2 max = new Vector2(bounds.max.x - margin, bounds.max.y - margin);
         
-        return new Vector2(
+        Vector2 spawnPos = new Vector2(
             Random.Range(min.x, max.x),
             Random.Range(min.y, max.y)
         );
+        
+        Debug.Log($"SpawnerController: Generated spawn position: {spawnPos}");
+        return spawnPos;
     }
 
     /// <summary>
@@ -221,6 +233,8 @@ public class SpawnerController : MonoBehaviour, IInitializable
     /// </summary>
     public void StartRound()
     {
+        Debug.Log($"SpawnerController: StartRound() called - GameState: {GameManager.Instance?.currentState}, isRoundActive: {isRoundActive}");
+        
         // Don't start round if game is in menu state
         if (GameManager.Instance != null && GameManager.Instance.currentState == GameState.MainMenu)
         {
@@ -230,8 +244,10 @@ public class SpawnerController : MonoBehaviour, IInitializable
         
         if (isRoundActive)
         {
-            Debug.LogWarning("SpawnerController: Round is already active!");
-            return;
+            Debug.LogWarning("SpawnerController: Round is already active! Forcing reset and starting new round.");
+            // Force reset the round state
+            isRoundActive = false;
+            roundTimer = 0f;
         }
 
         Debug.Log("SpawnerController: Starting new round");
@@ -239,15 +255,23 @@ public class SpawnerController : MonoBehaviour, IInitializable
         // Apply current difficulty settings if DifficultyManager is available
         if (DifficultyManager.Instance != null)
         {
+            Debug.Log("SpawnerController: Applying difficulty settings...");
             DifficultyManager.Instance.ApplyDifficultyToSpawnerController();
+        }
+        else
+        {
+            Debug.LogWarning("SpawnerController: No DifficultyManager found!");
         }
         
         // Reset round state
+        Debug.Log("SpawnerController: Setting round state - isRoundActive = true, roundTimer = 0");
         isRoundActive = true;
         roundTimer = 0f;
         
         // Start the round flow
+        Debug.Log("SpawnerController: Starting RoundFlow coroutine...");
         StartCoroutine(RoundFlow());
+        Debug.Log("SpawnerController: RoundFlow coroutine started successfully");
     }
 
     /// <summary>
@@ -284,43 +308,51 @@ public class SpawnerController : MonoBehaviour, IInitializable
     /// </summary>
     private System.Collections.IEnumerator RoundFlow()
     {
-        // Step 1: Choose spawn point
-        Vector2 spawnPosition = GetRandomSpawnPosition();
-        Debug.Log($"SpawnerController: Round starting - ball will spawn at {spawnPosition}");
+        Debug.Log("SpawnerController: RoundFlow() coroutine started");
+        
 
-        // Step 2: Anticipation pause
-        float anticipationDuration = Random.Range(anticipationMinDuration, anticipationMaxDuration);
-        Debug.Log($"SpawnerController: Anticipation pause for {anticipationDuration:F1} seconds");
-        yield return new WaitForSeconds(anticipationDuration);
+            // Step 1: Choose spawn point
+            Debug.Log("SpawnerController: Getting random spawn position...");
+            Vector2 spawnPosition = GetRandomSpawnPosition();
+            Debug.Log($"SpawnerController: Round starting - ball will spawn at {spawnPosition}");
 
-        // Step 3: Spawn VFX
-        if (BallSpawnVFXObject != null)
-        {
-            GameObject vfx = Instantiate(BallSpawnVFXObject, spawnPosition, Quaternion.identity);
-            vfx.name = $"BallSpawnVFX_{Time.time:F1}";
+            // Step 2: Anticipation pause
+            float anticipationDuration = Random.Range(anticipationMinDuration, anticipationMaxDuration);
+            Debug.Log($"SpawnerController: Anticipation pause for {anticipationDuration:F1} seconds");
+            yield return new WaitForSeconds(anticipationDuration);
+
+            // Step 3: Spawn VFX
+            if (BallSpawnVFXObject != null)
+            {
+                GameObject vfx = Instantiate(BallSpawnVFXObject, spawnPosition, Quaternion.identity);
+                vfx.name = $"BallSpawnVFX_{Time.time:F1}";
+                
+                // Destroy VFX after lifespan
+                Destroy(vfx, ballSpawnVFXLifespan);
+                
+                Debug.Log($"SpawnerController: Spawned VFX at {spawnPosition}, will destroy in {ballSpawnVFXLifespan} seconds");
+            }
+            else
+            {
+                Debug.LogWarning("SpawnerController: BallSpawnVFXObject is not assigned!");
+            }
+
+            // Step 4: Wait for VFX duration, then spawn ball
+            yield return new WaitForSeconds(ballSpawnVFXLifespan);
+
+            // Step 5: Spawn and launch the ball
+            GameObject ball = Instantiate(ballPrefab, spawnPosition, Quaternion.identity);
+            ball.name = $"Ball_{totalBallsSpawned}";
+            totalBallsSpawned++;
+
+            // Configure the ball with random physics properties
+            ConfigureBall(ball);
             
-            // Destroy VFX after lifespan
-            Destroy(vfx, ballSpawnVFXLifespan);
-            
-            Debug.Log($"SpawnerController: Spawned VFX at {spawnPosition}, will destroy in {ballSpawnVFXLifespan} seconds");
-        }
-        else
-        {
-            Debug.LogWarning("SpawnerController: BallSpawnVFXObject is not assigned!");
-        }
+            // Apply current theme accent color to the ball
+            ApplyThemeToBall(ball);
 
-        // Step 4: Wait for VFX duration, then spawn ball
-        yield return new WaitForSeconds(ballSpawnVFXLifespan);
-
-        // Step 5: Spawn and launch the ball
-        GameObject ball = Instantiate(ballPrefab, spawnPosition, Quaternion.identity);
-        ball.name = $"Ball_{totalBallsSpawned}";
-        totalBallsSpawned++;
-
-        // Configure the ball with random physics properties
-        ConfigureBall(ball);
-
-        Debug.Log($"SpawnerController: Ball spawned and launched at {spawnPosition}");
+            Debug.Log($"SpawnerController: Ball spawned and launched at {spawnPosition}");
+       
     }
 
     private void OnDrawGizmos()

@@ -156,6 +156,12 @@ public class PlayerManager : MonoBehaviour, IInitializable
         PlayerGraphicsRef = playerCharacter.PlayerGraphics;
         UpdatePlayerRef(playerCharacter);
 
+        // Apply current theme colors to the player sprites
+        if (ThemeController.Instance != null)
+        {
+            ThemeController.Instance.ApplyThemeToPlayer(playerCharacter);
+        }
+
         Debug.Log("PlayerManager: Player spawned successfully");
         //SetInitialState();
         //StartCoroutine(DamageCooldown());
@@ -192,7 +198,7 @@ public class PlayerManager : MonoBehaviour, IInitializable
                     Debug.Log("PlayerManager: Round completed!");
                     
                     // Test alert for round success
-                    HUD.Instance.ShowAlertMessage("ROUND SUCCESS!", 0.3f, 2f, 0.5f);
+                    HUD.Instance.ShowAlertMessage("Round Complete", 0.3f, 2f, 0.5f);
                 }
                 else
                 {

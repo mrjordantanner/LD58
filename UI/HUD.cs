@@ -42,9 +42,6 @@ public class HUD : MenuPanel, IInitializable
     public GameObject screenFlash;
     CanvasGroup screenFlashCanvas;
 
-    [Header("Objectives")]
-    public CanvasGroup objectivesUI;
-
     [Header("Message Text")]
     public CanvasGroup messageCanvasGroup;
     public TextMeshProUGUI messageText;

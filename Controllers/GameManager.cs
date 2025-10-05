@@ -154,7 +154,6 @@ public class GameManager : MonoBehaviour, IInitializable
         Debug.Log("GameManager: Replaying game");
         
         PlayerData.Instance.Data.Replays++;
-        HUD.Instance.objectivesUI.alpha = 0;
 
         showIntroDialogue = false;
         StartCoroutine(InitializeNewRun(true));
@@ -227,10 +226,16 @@ public class GameManager : MonoBehaviour, IInitializable
         Debug.Log("GameManager: Waiting 1 seconds before spawning player...");
         yield return new WaitForSecondsRealtime(1f);
 
-        Debug.Log("GameManager: About to spawn player and initialize progression");
+        Debug.Log("GameManager: About to initialize level without starting round");
+        Progression.Instance.InitializeLevelWithoutStarting(1);
+        
+        Debug.Log("GameManager: Waiting 1 second before spawning player...");
+        yield return new WaitForSecondsRealtime(1f);
+        
+        Debug.Log("GameManager: About to spawn player and start game flow");
         PlayerManager.Instance.SpawnPlayer();
-        Progression.Instance.InitializeLevel(1);
-        Debug.Log("GameManager: Player spawning and progression initialization complete");
+        Progression.Instance.StartRound(1);
+        Debug.Log("GameManager: Player spawning and game flow start complete");
     }
 
     public void EndRunCallback()
@@ -246,7 +251,6 @@ public class GameManager : MonoBehaviour, IInitializable
         
         // Hide UI elements
         HUD.Instance.Hide();
-        HUD.Instance.objectivesUI.alpha = 0;
         PauseMenu.Instance.Hide();
         Menu.Instance.ActiveMenuPanel.Hide();
 
@@ -277,7 +281,6 @@ public class GameManager : MonoBehaviour, IInitializable
         
         // Hide UI elements
         HUD.Instance.Hide();
-        HUD.Instance.objectivesUI.alpha = 0;
 
         // Save data and update leaderboard
         PlayerData.Instance.SaveAllAsync();

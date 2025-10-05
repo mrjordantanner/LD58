@@ -70,6 +70,26 @@ public class Collector : MonoBehaviour
     // Cached Drag component reference
     private Drag playerDragComponent;
 
+    /// <summary>
+    /// Checks if there's a ball in play (exists and is moving)
+    /// </summary>
+    private bool IsBallInPlay()
+    {
+        // Find all balls in the scene
+        BallMovement[] allBalls = FindObjectsOfType<BallMovement>();
+        
+        // Check if any ball is moving (in play)
+        foreach (BallMovement ball in allBalls)
+        {
+            if (ball != null && ball.IsMoving())
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
     private void Start()
     {
         originalScale = GraphicsObject != null ? GraphicsObject.transform.localScale : transform.localScale;
@@ -163,7 +183,7 @@ public class Collector : MonoBehaviour
         isExpanding = true;
         isExpanded = false;
 
-        AudioManager.Instance.PlaySound("Up-2");
+        AudioManager.Instance.PlaySound("Open-1");
         
         // Create the expansion sequence - move quadrants outward
         expansionTween = DOTween.Sequence()
@@ -211,6 +231,8 @@ public class Collector : MonoBehaviour
 
         // Start collection window immediately when closing begins
         StartCollectionWindow();
+
+        AudioManager.Instance.PlaySound("Shut-1");
 
         // Create the contraction sequence
         expansionTween = DOTween.Sequence()
@@ -264,8 +286,8 @@ public class Collector : MonoBehaviour
             }
             else
             {
-                // Trigger round failure for failed collection attempt
-                if (Progression.Instance != null)
+                // Only trigger round failure for failed collection attempt if ball is in play
+                if (IsBallInPlay() && Progression.Instance != null)
                 {
                     if (Progression.Instance.IsInRound())
                     {
@@ -275,6 +297,10 @@ public class Collector : MonoBehaviour
                         // Test alert for round failure
                         //HUD.Instance.ShowAlertMessage("ROUND FAILED!", 0.3f, 2f, 0.5f);
                     }
+                }
+                else if (!IsBallInPlay())
+                {
+                    Debug.Log("Collector: Collection attempt failed but ball is not in play - no failure triggered");
                 }
             }
         }
@@ -458,14 +484,18 @@ public class Collector : MonoBehaviour
         // Check if collection was successful during this window
         if (!collectionSuccessful)
         {
-            // No collectible was collected during the window - fail the round
-            if (Progression.Instance != null && Progression.Instance.IsInRound())
+            // Only fail the round if ball is in play and no collectible was collected during the window
+            if (IsBallInPlay() && Progression.Instance != null && Progression.Instance.IsInRound())
             {
                 Progression.Instance.FailRound();
                 //Debug.Log("Collector: Round failed - no collectible collected during window");
                 
                 // Test alert for round failure
                 //HUD.Instance.ShowAlertMessage("ROUND FAILED", 0.3f, 2f, 0.5f);
+            }
+            else if (!IsBallInPlay())
+            {
+                Debug.Log("Collector: No collectible collected during window but ball is not in play - no failure triggered");
             }
         }
 

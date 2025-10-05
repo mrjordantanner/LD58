@@ -203,6 +203,29 @@ public class ThemeController : MonoBehaviour, IInitializable
         }
     }
 
+    /// <summary>
+    /// Applies theme colors to a specific player character
+    /// </summary>
+    /// <param name="playerCharacter">The player character to theme</param>
+    public void ApplyThemeToPlayer(PlayerCharacter playerCharacter)
+    {
+        if (playerCharacter == null) return;
+
+        Theme currentTheme = GetCurrentTheme();
+        
+        // Apply foreground color to the 4 player graphics renderers
+        if (playerCharacter.graphicTopLeft != null)
+            playerCharacter.graphicTopLeft.color = currentTheme.foregroundColor;
+        if (playerCharacter.graphicTopRight != null)
+            playerCharacter.graphicTopRight.color = currentTheme.foregroundColor;
+        if (playerCharacter.graphicBottomLeft != null)
+            playerCharacter.graphicBottomLeft.color = currentTheme.foregroundColor;
+        if (playerCharacter.graphicBottomRight != null)
+            playerCharacter.graphicBottomRight.color = currentTheme.foregroundColor;
+        
+        Debug.Log("ThemeController: Applied foreground color to player sprites");
+    }
+
     #endregion
 
     #region Color Access Methods
