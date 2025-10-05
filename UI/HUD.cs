@@ -26,6 +26,10 @@ public class HUD : MenuPanel, IInitializable
 
     public string Name { get { return "User Interface"; } }
 
+    [Header("Alert Message Colors")]
+    public Color successColor = new Color(0.41f, 0.99f, 0.69f, 1f); // #68FCB0
+    public Color alertColor = new Color(1f, 0.16f, 0.38f, 1f); // #FF2961
+
     public TextMeshProUGUI scoreLabel, 
         bestScoreLabel, 
         gameTimerLabel, 
@@ -116,24 +120,31 @@ public class HUD : MenuPanel, IInitializable
 
     // ALERT MESSAGE
     private Sequence currentAlertMessageSequence;
-    public void ShowAlertMessage(string message, float fadeInDuration, float displayDuration, float fadeOutDuration, bool blink = false)
+    public void ShowAlertMessage(string message, float fadeInDuration, float displayDuration, float fadeOutDuration, Color? textColor = null)
     {
         alertMessageText.text = "";
         if (currentAlertMessageSequence != null)
         {
             // If a message is already displaying, interrupt it and fade it out immediately
             currentAlertMessageSequence.Kill();
-            alertMessageCanvasGroup.DOFade(0, 0.05f).OnComplete(() => DisplayNewAlertMessage(message, fadeInDuration, displayDuration, fadeOutDuration));
+            alertMessageCanvasGroup.DOFade(0, 0.05f).OnComplete(() => DisplayNewAlertMessage(message, fadeInDuration, displayDuration, fadeOutDuration, textColor));
         }
         else
         {
-            DisplayNewAlertMessage(message, fadeInDuration, displayDuration, fadeOutDuration);
+            DisplayNewAlertMessage(message, fadeInDuration, displayDuration, fadeOutDuration, textColor);
         }
     }
 
-    void DisplayNewAlertMessage(string message, float fadeInDuration, float displayDuration, float fadeOutDuration)
+    void DisplayNewAlertMessage(string message, float fadeInDuration, float displayDuration, float fadeOutDuration, Color? textColor = null)
     {
         alertMessageText.text = message;
+        
+        // Set text color if provided
+        if (textColor.HasValue)
+        {
+            alertMessageText.color = textColor.Value;
+        }
+        
         currentAlertMessageSequence = DOTween.Sequence()
             .Append(alertMessageCanvasGroup.DOFade(1, fadeInDuration).SetEase(Ease.OutQuint))
             .AppendInterval(displayDuration)

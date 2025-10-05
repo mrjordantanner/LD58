@@ -200,9 +200,9 @@ public class Progression : MonoBehaviour, IInitializable
         Debug.Log("Progression: Triggering level completed event...");
         EventManager.Instance.TriggerEvent(EventManager.LEVEL_COMPLETED, currentLevelData);
         
-        // 2) Wait 2 seconds to show level complete message
-        Debug.Log("Progression: Waiting 2 seconds...");
-        yield return new WaitForSeconds(2f);
+        // 2) Wait 1.5 seconds to show level complete message
+        Debug.Log("Progression: Waiting 1.5 seconds...");
+        yield return new WaitForSeconds(1.5f);
         
         // 3) Despawn the player
         Debug.Log("Progression: Despawning player...");
@@ -211,32 +211,57 @@ public class Progression : MonoBehaviour, IInitializable
             PlayerManager.Instance.DespawnPlayer();
         }
         
-        // 4) Wait 1.5 seconds
-        Debug.Log("Progression: Waiting 1.5 seconds...");
-        yield return new WaitForSeconds(1.5f);
+        // 4) Wait 1 second
+        Debug.Log("Progression: Waiting 1 second...");
+        yield return new WaitForSeconds(1f);
         
-        // 5) Increment level and reset round
+        // 5) Check if we've reached max level (win condition)
+        int maxLevel = DifficultyManager.Instance != null ? DifficultyManager.Instance.maxLevel : 20;
+        if (currentLevel >= maxLevel)
+        {
+            Debug.Log("Progression: Max level reached! Player has won the game!");
+            
+            // Show congratulations message
+            if (HUD.Instance != null)
+            {
+                HUD.Instance.ShowAlertMessage("Congratulations, you've won!", 0.5f, 5f, 1f);
+            }
+            
+            // Wait for message to display
+            yield return new WaitForSeconds(6f);
+            
+            // Return to main menu
+            if (Menu.Instance != null)
+            {
+                StartCoroutine(Menu.Instance.ReturnToTitleScreen());
+            }
+            
+            Debug.Log("Progression: Game won - returning to title screen");
+            yield break; // Exit the coroutine
+        }
+        
+        // 6) Increment level and reset round
         Debug.Log("Progression: Advancing to next level...");
         currentLevel++;
         currentRound = 1;
         roundsCompletedInCurrentLevel = 0;
         
-        // 6) Wait 1 second
-        Debug.Log("Progression: Waiting 1 second...");
-        yield return new WaitForSeconds(1f);
+        // 7) Wait 0.5 seconds
+        Debug.Log("Progression: Waiting 0.5 seconds...");
+        yield return new WaitForSeconds(0.5f);
         
-        // 7) Spawn the player
+        // 8) Spawn the player
         Debug.Log("Progression: Respawning player...");
         if (PlayerManager.Instance != null)
         {
             PlayerManager.Instance.SpawnPlayer();
         }
         
-        // 8) Wait 0.5 seconds
+        // 9) Wait 0.5 seconds
         Debug.Log("Progression: Waiting 0.5 seconds...");
         yield return new WaitForSeconds(0.5f);
         
-        // 9) Start the new level
+        // 10) Start the new level
         Debug.Log("Progression: Starting new level...");
         InitializeLevel(currentLevel);
         
@@ -323,7 +348,14 @@ public class Progression : MonoBehaviour, IInitializable
     /// </summary>
     private System.Collections.IEnumerator RoundSuccessSequence()
     {
-        // 1) Trigger round completed event
+        // 1) Show success alert message
+        Debug.Log("Progression: Showing round success message...");
+        if (HUD.Instance != null)
+        {
+            HUD.Instance.ShowAlertMessage("Round Complete!", 0.3f, 2f, 0.5f, HUD.Instance.successColor);
+        }
+        
+        // 2) Trigger round completed event
         Debug.Log("Progression: Triggering round completed event...");
         EventManager.Instance.TriggerEvent(EventManager.ROUND_COMPLETED, currentRoundData);
         
@@ -338,9 +370,9 @@ public class Progression : MonoBehaviour, IInitializable
             }
         }
         
-        // 3) Wait 1.5 seconds
-        Debug.Log("Progression: Waiting 1.5 seconds...");
-        yield return new WaitForSeconds(1.5f);
+        // 3) Wait 1 second
+        Debug.Log("Progression: Waiting 1 second...");
+        yield return new WaitForSeconds(1f);
         
         // 4) Despawn the player
         Debug.Log("Progression: Despawning player...");
@@ -349,16 +381,16 @@ public class Progression : MonoBehaviour, IInitializable
             PlayerManager.Instance.DespawnPlayer();
         }
         
-        // 5) Wait 1.5 seconds
-        Debug.Log("Progression: Waiting 1.5 seconds...");
-        yield return new WaitForSeconds(1.5f);
+        // 5) Wait 1 second
+        Debug.Log("Progression: Waiting 1 second...");
+        yield return new WaitForSeconds(1f);
         
         // 6) Show new level-round text (this happens automatically via events)
         Debug.Log("Progression: Showing progression...");
         
-        // 7) Wait 1 second
-        Debug.Log("Progression: Waiting 1 second...");
-        yield return new WaitForSeconds(1f);
+        // 7) Wait 0.5 seconds
+        Debug.Log("Progression: Waiting 0.5 seconds...");
+        yield return new WaitForSeconds(0.5f);
         
         // 8) Spawn the player
         Debug.Log("Progression: Respawning player...");
@@ -428,17 +460,24 @@ public class Progression : MonoBehaviour, IInitializable
     {
         Debug.Log("======= Progression: RoundFailureSequence started  ====");
         
+        // 1) Show failure alert message
+        Debug.Log("Progression: Showing round failure message...");
+        if (HUD.Instance != null)
+        {
+            HUD.Instance.ShowAlertMessage("Round Failed!", 0.3f, 2f, 0.5f, HUD.Instance.alertColor);
+        }
+        
         // Suspend input during failure sequence
         GameManager.Instance.inputSuspended = true;
         
-        // 1) Reset SpawnerController round state
+        // 2) Reset SpawnerController round state
         Debug.Log("Progression: Resetting SpawnerController round state...");
         if (SpawnerController.Instance != null)
         {
             SpawnerController.Instance.EndRound();
         }
         
-        // 2) Immediately destroy collectibles with VFX
+        // 3) Immediately destroy collectibles with VFX
         Debug.Log("Progression: Destroying collectibles...");
         Collectible[] collectibles = FindObjectsOfType<Collectible>();
         foreach (Collectible collectible in collectibles)
@@ -452,22 +491,22 @@ public class Progression : MonoBehaviour, IInitializable
         // Trigger round failed event
         EventManager.Instance.TriggerEvent(EventManager.ROUND_FAILED, currentRoundData);
         
-        // 3) Wait 1 second
-        Debug.Log("Progression: Waiting 1 second...");
-        yield return new WaitForSeconds(1f);
+        // 4) Wait 0.5 seconds
+        Debug.Log("Progression: Waiting 0.5 seconds...");
+        yield return new WaitForSeconds(0.5f);
         
-        // 4) Despawn the player
+        // 5) Despawn the player
         Debug.Log("Progression: Despawning player...");
         if (PlayerManager.Instance != null)
         {
             PlayerManager.Instance.DespawnPlayer();
         }
         
-        // 5) Wait 1 second
-        Debug.Log("Progression: Waiting 1 second...");
-        yield return new WaitForSeconds(1f);
+        // 6) Wait 0.5 seconds
+        Debug.Log("Progression: Waiting 0.5 seconds...");
+        yield return new WaitForSeconds(0.5f);
         
-        // 6) Respawn the player and start the round over
+        // 7) Respawn the player and start the round over
         Debug.Log("Progression: Respawning player and restarting round...");
         if (PlayerManager.Instance != null)
         {
