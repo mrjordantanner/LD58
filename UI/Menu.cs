@@ -73,9 +73,9 @@ public class Menu : MonoBehaviour, IInitializable
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.M) && GameManager.Instance.gameRunning && !enteringText)
+        if (Input.GetKeyDown(KeyCode.M) && GameManager.Instance.IsGameRunning() && !enteringText)
         {
-            if (!GameManager.Instance.gamePaused)
+            if (!GameManager.Instance.IsGamePaused())
             {
                 ShowPauseMenu();
                 PlayClickSound();

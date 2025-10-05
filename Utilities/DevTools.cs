@@ -67,7 +67,7 @@ public class DevTools : MonoBehaviour
             ToggleDevWindow();
         }
 
-        if (!devInputBufferOn && GameManager.Instance.gameRunning)
+        if (!devInputBufferOn && GameManager.Instance.IsGameRunning())
         {
             HandleGameplayDevInput();
         }
@@ -118,10 +118,8 @@ public class DevTools : MonoBehaviour
             StartDevInputBuffer();
         }
 
-        // 8: Die
         if (Input.GetKeyDown(KeyCode.Keypad8))
         {
-            StartCoroutine(PlayerManager.Instance.PlayerDeath());
             StartDevInputBuffer();
         }
 
@@ -141,7 +139,7 @@ public class DevTools : MonoBehaviour
 
     public void ToggleFreezeframe()
     {
-        if (GameManager.Instance.gamePaused)
+        if (GameManager.Instance.IsGamePaused())
         {
             GameManager.Instance.Unpause();
         }
@@ -202,7 +200,7 @@ public class DevTools : MonoBehaviour
 
     public void ToggleDevWindow()
     {
-        if (!GameManager.Instance.gameRunning)
+        if (!GameManager.Instance.IsGameRunning())
         {
             if (menuToolsActive)
             {

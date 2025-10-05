@@ -68,12 +68,16 @@ public class Loader : MonoBehaviour
         {
             Authentication.Instance,
             Config.Instance,
+            EventManager.Instance,
+            ThemeController.Instance,
             GameManager.Instance,
             Menu.Instance,
             AudioManager.Instance,
             PlayerManager.Instance,
             HUD.Instance,
+            ProgressUI.Instance,
             LeaderboardService.Instance,
+            Progression.Instance
         };
 
         //print($"Loader: Waiting for {Instances.Count} Instances");
@@ -95,11 +99,15 @@ public class Loader : MonoBehaviour
             {
                 //Authentication.Instance,
                 Config.Instance,
+                EventManager.Instance,
+                ThemeController.Instance,
                 GameManager.Instance,
                 Menu.Instance,
                 AudioManager.Instance,
                 PlayerManager.Instance,
                 HUD.Instance,
+                ProgressUI.Instance,
+                Progression.Instance
             };
         }
         else
@@ -107,12 +115,16 @@ public class Loader : MonoBehaviour
             Dependencies = new()
             {
                 Authentication.Instance,
+                EventManager.Instance,
+                ThemeController.Instance,
                 GameManager.Instance,
                 Menu.Instance,
                 AudioManager.Instance,
                 PlayerManager.Instance,
                 HUD.Instance,
+                ProgressUI.Instance,
                 LeaderboardService.Instance,
+                Progression.Instance
             };
         }
 

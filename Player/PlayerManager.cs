@@ -35,6 +35,8 @@ public class PlayerManager : MonoBehaviour, IInitializable
     #region Declarations
     public bool useDpad, useAnalogStick;
 
+    public GameObject PlayerSpawnPoint;
+
     [Header("Player Game Data")]
     public float currentHealth, MaxHealth = 1;
 
@@ -71,7 +73,8 @@ public class PlayerManager : MonoBehaviour, IInitializable
 
     public IEnumerator Init()
     {
-        SetInitialState();
+        //
+        //SetInitialState();
 
         yield return new WaitForSecondsRealtime(0);
     }
@@ -84,13 +87,10 @@ public class PlayerManager : MonoBehaviour, IInitializable
 
     void Update()
     {
-        if (!GameManager.Instance.gameRunning) return;
-
-        // Select Player Object with KeyPad 0
-        //if (Input.GetKeyDown(KeyCode.Keypad0)) UnityEditor.Selection.activeGameObject = player.gameObject;
+        if (!GameManager.Instance.IsGameRunning()) return;
 
         // Handle Input
-        if (!GameManager.Instance.inputSuspended && !GameManager.Instance.gamePaused && State != PlayerState.Hurt)
+        if (!GameManager.Instance.inputSuspended && !GameManager.Instance.IsGamePaused() && State != PlayerState.Hurt)
         {
             HandleInput();
             HandleGamepadInput();
@@ -98,34 +98,67 @@ public class PlayerManager : MonoBehaviour, IInitializable
 
     }
 
-    public void SetInitialState()
-    {
-        RefillHealth();
+    //public void SetInitialState()
+    //{
+    //    //RefillHealth();
 
-        //HUD.Instance.UpdateHealthbar(true, false);
+    //    //HUD.Instance.UpdateHealthbar(true, false);
 
-        State = PlayerState.Idle;
-        canMove = true;
-        facingRight = false;
-        invulnerable = false;
+    //    //State = PlayerState.Idle;
+    //   // canMove = true;
+    //    //facingRight = false;
+    //    //invulnerable = false;
 
-        //player.trails.enabled = true;
-        //player.trails.on = true;
-    }
+    //    //player.trails.enabled = true;
+    //    //player.trails.on = true;
+
+    //    // Subscribe to player events
+    //    // EventManager.Instance.Subscribe(EventManager.PLAYER_DAMAGED, OnPlayerDamaged);
+    //    // EventManager.Instance.Subscribe(EventManager.PLAYER_DIED, OnPlayerDied);
+    //    // EventManager.Instance.Subscribe(EventManager.PLAYER_RESPAWNED, OnPlayerRespawned);
+        
+    //    // Subscribe to collectible events
+    //    EventManager.Instance.Subscribe(EventManager.COLLECTIBLE_PICKED_UP, OnCollectiblePickedUp);
+    //}
 
     public void SpawnPlayer()
     {
+        Debug.Log("PlayerManager: SpawnPlayer() called");
+        
         DespawnPlayer();
 
-        Vector3 spawnPosition = Vector3.zero;  // TODO Fix
-        //var spawnPosition = LevelController.Instance.CurrentLevel.playerSpawnPoint.transform.position;
+        if (playerSpawnPoint == null)
+        {
+            Debug.LogError("PlayerManager: playerSpawnPoint is null! Please assign a spawn point in the Inspector.");
+            return;
+        }
+
+        if (PlayerPrefab == null)
+        {
+            Debug.LogError("PlayerManager: PlayerPrefab is null! Please assign a player prefab in the Inspector.");
+            return;
+        }
+
+        var spawnPosition = playerSpawnPoint.transform.position;
+        Debug.Log($"PlayerManager: Spawning player at position {spawnPosition}");
+        
         var PlayerObject = Instantiate(PlayerPrefab, spawnPosition, Quaternion.identity);
         PlayerObject.name = "Player";
-        PlayerGraphicsRef = player.PlayerGraphics;
-        UpdatePlayerRef(PlayerObject.GetComponent<PlayerCharacter>());
+        
+        // Get the PlayerCharacter component from the instantiated object
+        var playerCharacter = PlayerObject.GetComponent<PlayerCharacter>();
+        if (playerCharacter == null)
+        {
+            Debug.LogError("PlayerManager: PlayerCharacter component not found on instantiated player!");
+            return;
+        }
 
-        SetInitialState();
-        StartCoroutine(DamageCooldown());
+        PlayerGraphicsRef = playerCharacter.PlayerGraphics;
+        UpdatePlayerRef(playerCharacter);
+
+        Debug.Log("PlayerManager: Player spawned successfully");
+        //SetInitialState();
+        //StartCoroutine(DamageCooldown());
     }
 
     public void DespawnPlayer()
@@ -134,6 +167,46 @@ public class PlayerManager : MonoBehaviour, IInitializable
         if (existingPlayer != null)
         {
             Destroy(existingPlayer.transform.gameObject);
+        }
+    }
+
+    public void OnCollectiblePickedUp(object data)
+    {
+        Debug.Log($"PlayerManager: OnCollectiblePickedUp called with data: {data}");
+        
+        if (data is Collectible collectible)
+        {
+            Debug.Log($"PlayerManager: Collectible picked up: {collectible.name}");
+            AudioManager.Instance.PlaySound("Hit-1");
+
+            // TODO play VFX
+
+            // Complete the current round
+            if (Progression.Instance != null)
+            {
+                Debug.Log($"PlayerManager: Progression instance found. IsInRound: {Progression.Instance.IsInRound()}");
+                if (Progression.Instance.IsInRound())
+                {
+                    // TODO add points to score based on round timer?
+                    Progression.Instance.CompleteRound();
+                    Debug.Log("PlayerManager: Round completed!");
+                    
+                    // Test alert for round success
+                    HUD.Instance.ShowAlertMessage("ROUND SUCCESS!", 0.3f, 2f, 0.5f);
+                }
+                else
+                {
+                    Debug.Log("PlayerManager: Not in a round, cannot complete");
+                }
+            }
+            else
+            {
+                Debug.LogError("PlayerManager: Progression.Instance is null!");
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"PlayerManager: Expected Collectible but got {data?.GetType()}");
         }
     }
 
@@ -172,111 +245,103 @@ public class PlayerManager : MonoBehaviour, IInitializable
         else horiz = 0;
     }
 
-    public void RefillHealth()
-    {
-        currentHealth = MaxHealth;
-    }
+    //public void RefillHealth()
+    //{
+    //    currentHealth = MaxHealth;
+    //}
 
-    public void RefillLives()
-    {
-        currentLives = startingLives;
-        HUD.Instance.UpdateLives();
-    }
+    //// Player takes a hit
+    //public void PlayerHit(float damage)
+    //{
+    //    if (State == PlayerState.Dead)  return;
 
-    // Player takes a hit
-    public void PlayerHit(float damage)
-    {
-        if (State == PlayerState.Dead)  return;
+    //    if (player != null)
+    //    {
+    //        if (invulnerable) return;
 
-        if (player != null)
-        {
-            if (invulnerable) return;
+    //        CameraShaker.Instance.Shake(CameraShaker.ShakeStyle.Large);
+    //        TakeDamage(damage);
+    //        if (AudioManager.Instance.soundBank.TakeDamage) AudioManager.Instance.soundBank.TakeDamage.Play();
 
-            CameraShaker.Instance.Shake(CameraShaker.ShakeStyle.Large);
-            TakeDamage(damage);
-            if (AudioManager.Instance.soundBank.TakeDamage) AudioManager.Instance.soundBank.TakeDamage.Play();
+    //    }
+    //}
 
-        }
-    }
+    //public void TakeDamage(float damage)
+    //{
+    //    if (masterInvulnerability)
+    //    {
+    //        print("Player avoided damage bc MasterInvulnerability is true");
+    //        return;
+    //    }
 
-    public void TakeDamage(float damage)
-    {
-        if (masterInvulnerability)
-        {
-            print("Player avoided damage bc MasterInvulnerability is true");
-            return;
-        }
+    //    //var healthDamage = Mathf.Min(currentHealth, damage);
+    //    currentHealth -= damage;
+    //    //HUD.Instance.UpdateHealthbar(true, true);
 
-        //var healthDamage = Mathf.Min(currentHealth, damage);
-        currentHealth -= damage;
-        //HUD.Instance.UpdateHealthbar(true, true);
+    //    print($"Player takes {damage} damage");
 
-        print($"Player takes {damage} damage");
+    //    player.HitFlash();
 
-        player.HitFlash();
+    //    StartCoroutine(VFX.Instance.StartDamageEffects()); 
 
-        StartCoroutine(VFX.Instance.StartDamageEffects()); 
+    //    if (currentHealth <= 0)
+    //    {
+    //        currentHealth = 0;
+    //        StartCoroutine(PlayerDeath());
+    //        return;
+    //    }
 
-        if (currentHealth <= 0)
-        {
-            currentHealth = 0;
-            StartCoroutine(PlayerDeath());
-            return;
-        }
+    //    StartCoroutine(DamageCooldown());
+    //}
 
-        StartCoroutine(DamageCooldown());
-    }
+    //public IEnumerator PlayerDeath()
+    //{
+    //    if (AudioManager.Instance.soundBank.PlayerDeath) AudioManager.Instance.soundBank.PlayerDeath.Play();
+    //    if (PlayerDeathVFX) Instantiate(PlayerDeathVFX, player.transform.position, Quaternion.identity, VFX.Instance.VFXContainer.transform);
+    //    CameraShaker.Instance.Shake(CameraShaker.ShakeStyle.Large);
 
-    public IEnumerator PlayerDeath()
-    {
-        StartCoroutine(GameManager.Instance.TimeAcceleration());
+    //    State = PlayerState.Dead;
+    //    canMove = false;
+    //    invulnerable = true;
 
-        if (AudioManager.Instance.soundBank.PlayerDeath) AudioManager.Instance.soundBank.PlayerDeath.Play();
-        if (PlayerDeathVFX) Instantiate(PlayerDeathVFX, player.transform.position, Quaternion.identity, VFX.Instance.VFXContainer.transform);
-        CameraShaker.Instance.Shake(CameraShaker.ShakeStyle.Large);
+    //    currentLives--;
+    //    HUD.Instance.UpdateLives();
+    //    DespawnPlayer();
+    //    Time.timeScale = 0;
 
-        State = PlayerState.Dead;
-        canMove = false;
-        invulnerable = true;
+    //    //LevelController.Instance.CurrentLevel.Init();
 
-        currentLives--;
-        HUD.Instance.UpdateLives();
-        DespawnPlayer();
-        Time.timeScale = 0;
+    //    if (currentLives <= 0)
+    //    {
+    //        currentLives = 0;
+    //        HUD.Instance.UpdateLives();
+    //        yield return new WaitForSecondsRealtime(3);
 
-        //LevelController.Instance.CurrentLevel.Init();
-
-        if (currentLives <= 0)
-        {
-            currentLives = 0;
-            HUD.Instance.UpdateLives();
-            yield return new WaitForSecondsRealtime(3);
-
-            GameManager.Instance.GameOver();
-        }
-        else
-        {
-            yield return new WaitForSecondsRealtime(1);
-            //LevelController.Instance.CurrentLevel.StartLevel();
-        }
+    //        GameManager.Instance.GameOver();
+    //    }
+    //    else
+    //    {
+    //        yield return new WaitForSecondsRealtime(1);
+    //        //LevelController.Instance.CurrentLevel.StartLevel();
+    //    }
 
 
-    }
+    //}
 
 
-    public IEnumerator DamageCooldown(bool overrideWithDefaultValue = false)
-    {
-        if (invulnerable) yield break;
+    //public IEnumerator DamageCooldown(bool overrideWithDefaultValue = false)
+    //{
+    //    if (invulnerable) yield break;
 
-        invulnerable = true;
-        player.spriteFlicker.flicker = true;
+    //    invulnerable = true;
+    //    player.spriteFlicker.flicker = true;
 
-        var duration = overrideWithDefaultValue ? 1.5f : DamageCooldownDuration;
-        yield return new WaitForSeconds(duration);
+    //    var duration = overrideWithDefaultValue ? 1.5f : DamageCooldownDuration;
+    //    yield return new WaitForSeconds(duration);
 
-        invulnerable = false;
-        player.spriteFlicker.flicker = false;
-    }
+    //    invulnerable = false;
+    //    player.spriteFlicker.flicker = false;
+    //}
 
 }
 

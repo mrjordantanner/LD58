@@ -25,6 +25,16 @@ public class PlayerCharacter : Character
         if (!trails) trails = GetComponentInChildren<SpriteTrails>();
         if (!spriteFlicker) spriteFlicker = GetComponentInChildren<SpriteFlicker>();
 
+        // Set the sprite renderer color to the theme's primary light color
+        if (spriteRenderer != null && ThemeController.Instance != null)
+        {
+            spriteRenderer.color = ThemeController.Instance.GetColor("primaryLight");
+        }
+        else if (spriteRenderer == null)
+        {
+            Debug.LogWarning($"PlayerCharacter: No SpriteRenderer found on {name} or its children");
+        }
+
         if (PlayerManager.Instance) PlayerManager.Instance.UpdatePlayerRef(this);
 
         startingMaterial = spriteRenderer.material;
@@ -32,7 +42,7 @@ public class PlayerCharacter : Character
 
     void Update()
     {
-        if (!GameManager.Instance.gameRunning || GameManager.Instance.gamePaused) return;
+        if (!GameManager.Instance.IsGameRunning() || GameManager.Instance.IsGamePaused()) return;
 
         HandleAnimation();
     }
