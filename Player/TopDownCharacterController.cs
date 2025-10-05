@@ -14,7 +14,7 @@ public class TopDownCharacterController : MonoBehaviour
 
     private void Update()
     {
-        if (PlayerManager.Instance.State == PlayerState.Dead || PlayerManager.Instance.State == PlayerState.Hurt || GameManager.Instance.gamePaused || !PlayerManager.Instance.canMove) return;
+        if (PlayerManager.Instance.State == PlayerState.Dead || PlayerManager.Instance.State == PlayerState.Hurt || GameManager.Instance.IsGamePaused() || !PlayerManager.Instance.canMove) return;
 
         direction = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
         //CheckIfMoving();
@@ -27,7 +27,7 @@ public class TopDownCharacterController : MonoBehaviour
 
     private void Move()
     {
-        rb.velocity = PlayerManager.Instance.canMove && PlayerManager.Instance.State != PlayerState.Dead && !GameManager.Instance.gamePaused
+        rb.velocity = PlayerManager.Instance.canMove && PlayerManager.Instance.State != PlayerState.Dead && !GameManager.Instance.IsGamePaused()
         ? direction * PlayerManager.Instance.MoveSpeed
         : Vector2.zero;
     }

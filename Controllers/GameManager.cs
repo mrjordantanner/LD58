@@ -7,6 +7,17 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.SocialPlatforms;
 
+public enum GameState
+{
+    Initializing,
+    MainMenu,
+    Starting,
+    Running,
+    Paused,
+    Ending,
+    GameOver,
+    Restarting
+}
 
 public class GameManager : MonoBehaviour, IInitializable
 {
@@ -32,43 +43,83 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public string Name { get { return "Game Manager"; } }
 
-    //public bool startRoundsOnStartup = true;
+    [Header("Game Configuration")]
     public Dialogue tutorialDialogue;
-
-
-    [Header("Logging")]
+    public bool showIntroDialogue = true;
     public bool cloudLogging;
 
     [Header("Game State")]
-    [ReadOnly]
-    public bool gameRunning;
-    [ReadOnly]
-    public bool gamePaused;
-    [ReadOnly]
-    public bool inputSuspended;
-    public bool showIntroDialogue = true;
-
-    [Header("Time")]
-    [ReadOnly] public float timeScale;
-    public float velocityThreshold = 0.1f; // Buffer to determine if the character is moving
-    public float timeAccelerationDuration = 0.2f; // Duration for time scale to reach 1.0
-    public float timeDecelerationDuration = 0.5f; // Duration for time scale to reach slowTimeAmount
-    public float slowTimeAmount = 0.25f; // Time scale value when character is at rest
+    [ReadOnly] public GameState currentState = GameState.Initializing;
+    [ReadOnly] public bool inputSuspended;
     [ReadOnly] public float gameTimer;
     public bool gameTimerEnabled = true;
 
-
-
+    [Header("Time Management")]
+    [ReadOnly] public float timeScale;
 
     #endregion
 
+    #region Game State Management
+
+    /// <summary>
+    /// Sets the current game state and triggers appropriate events
+    /// </summary>
+    /// <param name="newState">The new game state to transition to</param>
+    private void SetGameState(GameState newState)
+    {
+        if (currentState == newState) return;
+        
+        GameState previousState = currentState;
+        currentState = newState;
+        
+        Debug.Log($"GameManager: State changed from {previousState} to {newState}");
+        
+        // Trigger state-specific events
+        switch (newState)
+        {
+            case GameState.Running:
+                EventManager.Instance.TriggerEvent(EventManager.GAME_STARTED);
+                break;
+            case GameState.Paused:
+                EventManager.Instance.TriggerEvent(EventManager.GAME_PAUSED);
+                break;
+            case GameState.GameOver:
+                EventManager.Instance.TriggerEvent(EventManager.GAME_ENDED);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current game state
+    /// </summary>
+    public GameState GetGameState() => currentState;
+
+    /// <summary>
+    /// Checks if the game is currently running
+    /// </summary>
+    public bool IsGameRunning() => currentState == GameState.Running;
+
+    /// <summary>
+    /// Checks if the game is currently paused
+    /// </summary>
+    public bool IsGamePaused() => currentState == GameState.Paused;
+
+    /// <summary>
+    /// Checks if input should be suspended based on current game state
+    /// </summary>
+    public bool ShouldSuspendInput() => inputSuspended || currentState != GameState.Running;
+
+    #endregion
 
     public IEnumerator Init()
     {
-        gameRunning = false;
+        // Initialize game state
+        SetGameState(GameState.Initializing);
         inputSuspended = true;
         Time.timeScale = 0;
+        gameTimer = 0;
 
+        Debug.Log("GameManager: Initialized");
         yield return new WaitForSecondsRealtime(0f);
     }
 
@@ -76,35 +127,18 @@ public class GameManager : MonoBehaviour, IInitializable
     void Update()
     {
         timeScale = Time.timeScale;
-        if (gameTimerEnabled && gameRunning) gameTimer += Time.deltaTime;
-        if (PlayerData.Instance) PlayerData.Instance.Data.TotalTimeElapsed += Time.unscaledDeltaTime;
-    }
-
-    // TIME
-    public IEnumerator TimeAcceleration()
-    {
-        float elapsedTime = 0f;
-        float startValue = Time.timeScale;
-        while (elapsedTime < timeAccelerationDuration)
+        
+        // Update game timer when running
+        if (gameTimerEnabled && currentState == GameState.Running)
         {
-            Time.timeScale = Mathf.Lerp(startValue, 1.0f, elapsedTime / timeAccelerationDuration);
-            elapsedTime += Time.deltaTime;
-            yield return null;
+            gameTimer += Time.deltaTime;
         }
-        Time.timeScale = 1.0f;
-    }
-
-    public IEnumerator TimeDeceleration()
-    {
-        float elapsedTime = 0f;
-        float startValue = Time.timeScale;
-        while (elapsedTime < timeDecelerationDuration)
+        
+        // Update total time elapsed
+        if (PlayerData.Instance) 
         {
-            Time.timeScale = Mathf.Lerp(startValue, slowTimeAmount, elapsedTime / timeDecelerationDuration);
-            elapsedTime += Time.deltaTime;
-            yield return null;
+            PlayerData.Instance.Data.TotalTimeElapsed += Time.unscaledDeltaTime;
         }
-        Time.timeScale = slowTimeAmount;
     }
 
     // Button callback
@@ -117,6 +151,8 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public void ReplayGame()
     {
+        Debug.Log("GameManager: Replaying game");
+        
         PlayerData.Instance.Data.Replays++;
         HUD.Instance.objectivesUI.alpha = 0;
 
@@ -126,6 +162,8 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public IEnumerator InitializeNewRun(bool isReplay = false)
     {
+        Debug.Log("GameManager: InitializeNewRun called");
+        
         // Handle screen fade if it's player's first playthrough
         if (!isReplay)
         {
@@ -137,50 +175,62 @@ public class GameManager : MonoBehaviour, IInitializable
         }
 
         gameTimer = 0;
-        PlayerManager.Instance.RefillLives();
+        //PlayerManager.Instance.RefillLives();
 
         PlayerData.Instance.Data.ResetGameSessionData();
 
+        Debug.Log("GameManager: About to start StartRun()");
         StartCoroutine(StartRun());
     }
 
 
     public IEnumerator StartRun()
     {
-        //print("IF YOU'RE READING THIS, THANKS FOR PLAYING MY GAME");
-        //print("GameManager: Start Run");
-
-        gameRunning = true;
+        Debug.Log("GameManager: Starting game run");
+        
+        SetGameState(GameState.Starting);
         gameTimerEnabled = true;
+        gameTimer = 0;
 
-        //PlayerManager.Instance.SpawnPlayer(PlayerManager.Instance.playerSpawnPoint.transform.position);
-
+        // Fade in screen
         HUD.Instance.screenFader.FadeIn(1f);
         yield return new WaitForSecondsRealtime(1f);
 
+        // Set up time scale
         Time.timeScale = 1;
         Time.fixedDeltaTime = 0.02f;
 
-        if (showIntroDialogue)
+        // Handle intro dialogue or start directly
+        if (showIntroDialogue && tutorialDialogue != null)
         {
+            Debug.Log("GameManager: Starting intro dialogue");
             StartCoroutine(DialogueManager.Instance.StartDialogue(tutorialDialogue));
         }
         else
         {
+            Debug.Log("GameManager: Skipping intro dialogue, calling OnIntroDialogueComplete directly");
             StartCoroutine(OnIntroDialogueComplete());
         }
     }
 
     public IEnumerator OnIntroDialogueComplete()
     {
+        Debug.Log("GameManager: Intro dialogue complete, starting gameplay");
+        
+        // Show HUD and enable input
         HUD.Instance.Show();
         inputSuspended = false;
-        yield return new WaitForSecondsRealtime(2f);
-
-        //LevelController.Instance.LoadLevel(1);
+        
+        // Set game state to running
+        SetGameState(GameState.Running);
+        
+        Debug.Log("GameManager: Waiting 1 seconds before spawning player...");
         yield return new WaitForSecondsRealtime(1f);
 
-        //LevelController.Instance.CurrentLevel.StartLevel();
+        Debug.Log("GameManager: About to spawn player and initialize progression");
+        PlayerManager.Instance.SpawnPlayer();
+        Progression.Instance.InitializeLevel(1);
+        Debug.Log("GameManager: Player spawning and progression initialization complete");
     }
 
     public void EndRunCallback()
@@ -190,42 +240,46 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public IEnumerator EndRun()
     {
-        //print("GameManager: End Run");
-
+        Debug.Log("GameManager: Ending game run");
+        
+        SetGameState(GameState.Ending);
+        
+        // Hide UI elements
         HUD.Instance.Hide();
-        //HUD.Instance.ShowPointerCursor();
         HUD.Instance.objectivesUI.alpha = 0;
+        PauseMenu.Instance.Hide();
+        Menu.Instance.ActiveMenuPanel.Hide();
 
+        // Save data and cleanup
         PlayerData.Instance.SaveAllAsync();
         PlayerManager.Instance.DespawnPlayer();
 
-        PauseMenu.Instance.Hide();
-        //DevTools.Instance.gameplayDevToolsWindow.Hide();
-        Menu.Instance.ActiveMenuPanel.Hide();
-
+        // Fade out and return to menu
         HUD.Instance.screenFader.FadeOut(1);
         StartCoroutine(AudioManager.Instance.FadeMusicOut(1));
         yield return new WaitForSecondsRealtime(1);
 
-        gameRunning = false;
+        // Reset game state
         gameTimerEnabled = false;
         gameTimer = 0;
         inputSuspended = true;
         Time.timeScale = 0;
+        SetGameState(GameState.MainMenu);
 
         StartCoroutine(Menu.Instance.ReturnToTitleScreen());
     }
 
     public void GameOver()
     {
+        Debug.Log("GameManager: Game Over");
+        
+        SetGameState(GameState.GameOver);
+        
+        // Hide UI elements
         HUD.Instance.Hide();
-        //HUD.Instance.ShowPointerCursor();
         HUD.Instance.objectivesUI.alpha = 0;
 
-        // Stop game running and score calculation, then calculate one final time
-        gameRunning = false;
-
-        // Update cloud, push player score up, get all scores back down
+        // Save data and update leaderboard
         PlayerData.Instance.SaveAllAsync();
         LeaderboardService.Instance.OnPlaySessionEnd();
 
@@ -236,6 +290,8 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public void RestartGame()
     {
+        Debug.Log("GameManager: Restarting game");
+        SetGameState(GameState.Restarting);
         StartCoroutine(Restart());
     }
 
@@ -247,24 +303,30 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public void Pause()
     {
-        AudioManager.Instance.ReduceMusicVolume();
+        if (currentState != GameState.Running) return;
 
+        SetGameState(GameState.Paused);
+        
+        AudioManager.Instance.ReduceMusicVolume();
         inputSuspended = true;
-        gamePaused = true;
         Time.timeScale = 0;
         Physics2D.simulationMode = SimulationMode2D.Script;
         HUD.Instance.screenFlash.SetActive(false);
+        
     }
 
     public void Unpause()
     {
-        AudioManager.Instance.RestoreMusicVolume();
+        if (currentState != GameState.Paused) return;
 
+        SetGameState(GameState.Running);
+        
+        AudioManager.Instance.RestoreMusicVolume();
         inputSuspended = false;
-        gamePaused = false;
         Time.timeScale = 1;
         Physics2D.simulationMode = SimulationMode2D.FixedUpdate;
         HUD.Instance.screenFlash.SetActive(true);
+        
     }
 
 

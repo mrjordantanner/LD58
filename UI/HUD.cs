@@ -26,9 +26,10 @@ public class HUD : MenuPanel, IInitializable
 
     public string Name { get { return "User Interface"; } }
 
-    public TextMeshProUGUI scoreLabel, bestScoreLabel, gameTimerLabel, levelNumberLabel;
-    public TextMeshProUGUI shotsFiredLabel, shotsParLabel;
-    public Image[] livesRemainingImages;
+    public TextMeshProUGUI scoreLabel, 
+        bestScoreLabel, 
+        gameTimerLabel, 
+        progressLabel;
 
     [Header("Cursors")]
     public CustomCursor customCursor;
@@ -51,22 +52,6 @@ public class HUD : MenuPanel, IInitializable
     public CanvasGroup alertMessageCanvasGroup;
     public TextMeshProUGUI alertMessageText;
 
-
-    //[Header("Floating Text")]
-    //public GameObject FloatingTextPrefab;
-    //public float floatingTextOffsetX = -0.5f;
-    //public float floatingTextOffsetY = 2f;
-    //public float floatingTextMoveAmount = 1;
-
-    //public void CreateFloatingText(string text, Color color, bool showGemIcon = false)
-    //{
-    //    var position = PlayerManager.Instance.player.transform.position + new Vector3(floatingTextOffsetX, floatingTextOffsetY, 0);
-    //    var FloatingText = Instantiate(FloatingTextPrefab, position, Quaternion.identity, worldUI.transform);
-    //    var floatingText = FloatingText.GetComponent<FloatingText>();
-    //    floatingText.SetProperties(text, color, showGemIcon);
-    //    FloatingText.transform.DOMoveY(position.y + floatingTextMoveAmount, 0.5f).SetEase(Ease.OutQuint);
-    //}
-
     public IEnumerator Init()
     {
         Hide();
@@ -80,39 +65,27 @@ public class HUD : MenuPanel, IInitializable
         yield return new WaitForSecondsRealtime(0);
     }
 
-    //private void Update()
-    //{
-    //    if (GameManager.Instance.gameRunning && !GameManager.Instance.gamePaused)
-    //    {
-    //        if (GameManager.Instance.gameTimerEnabled) gameTimerLabel.text = Utils.TimeFormatHundreds(GameManager.Instance.gameTimer);
-    //        if (PlayerData.Instance) UpdatePlayerScore();
-    //    }
-    //}
-
-    public void UpdateShotsUI()
+    private void Update()
     {
-        //var currentPar = LevelController.Instance.CurrentLevel.shotPar;
-       // var shotsFired = LevelController.Instance.CurrentLevel.shotsFiredThisLevel;
-
-       // shotsParLabel.text = currentPar.ToString();
-       // shotsFiredLabel.text = shotsFired.ToString();
-    }
-
-    public void UpdateLives()
-    {
-        //var currentLives = PlayerManager.Instance.currentLives;
-        //for (int i = 0; i < livesRemainingImages.Length; i++)
-        //{
-        //    livesRemainingImages[i].enabled = (livesRemainingImages.Length - i) <= currentLives;
-        //}
+        if (GameManager.Instance.IsGameRunning() && !GameManager.Instance.IsGamePaused())
+        {
+            if (GameManager.Instance.gameTimerEnabled) gameTimerLabel.text = Utils.TimeFormatHundreds(GameManager.Instance.gameTimer);
+            if (PlayerData.Instance) UpdatePlayerScore();
+        }
     }
 
     public void UpdatePlayerScore()
     {
-        //scoreLabel.text = PlayerData.Instance.Data.PlayerScore.ToString();
-        //string bestScore = PlayerData.Instance.Data.PlayerBestScore > 0 ? PlayerData.Instance.Data.PlayerBestScore.ToString() : "---";
-        //bestScoreLabel.text = bestScore;
+        scoreLabel.text = PlayerData.Instance.Data.PlayerScore.ToString();
+        string bestScore = PlayerData.Instance.Data.PlayerBestScore > 0 ? PlayerData.Instance.Data.PlayerBestScore.ToString() : "---";
+        bestScoreLabel.text = bestScore;
     }
+
+    public void UpdateProgress(string progressText)
+    {
+        progressLabel.text = progressText;
+    }
+
 
     // MESSAGE
     private Sequence currentMessageSequence;
@@ -204,4 +177,5 @@ public class HUD : MenuPanel, IInitializable
     //    customCursor.cursorTexture = pointerCursor;
     //    customCursor.hotspot = Vector2.zero;
     //}
+
 }

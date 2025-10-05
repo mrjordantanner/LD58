@@ -5,6 +5,7 @@ using System;
 using UnityEngine;
 using DG.Tweening;
 using Unity.Services.CloudSave.Models.Data.Player;
+using System.Linq;
 
 public class AudioManager : MonoBehaviour, IInitializable
 {
@@ -34,6 +35,9 @@ public class AudioManager : MonoBehaviour, IInitializable
     //public float pitchRandomizationAmount = 0.2f;
 
     public SoundBank soundBank;
+    
+    // Dictionary for quick sound lookup by name
+    private Dictionary<string, SoundEffect> soundLookup = new Dictionary<string, SoundEffect>();
 
     [Header("Music")]
     public AudioClip titleScreenMusic;
@@ -53,13 +57,89 @@ public class AudioManager : MonoBehaviour, IInitializable
 
     public IEnumerator Init()
     {
-
         //soundEffects = Resources.LoadAll<SoundEffect>("SoundEffects");
 
         musicAudioSource.loop = true;
         musicAudioSource.outputAudioMixerGroup = musicMixerGroup;
+        
+        // Build sound lookup dictionary
+        BuildSoundLookup();
 
         yield return new WaitForSecondsRealtime(0);
+    }
+
+    /// <summary>
+    /// Builds the sound lookup dictionary from the sound bank
+    /// </summary>
+    private void BuildSoundLookup()
+    {
+        soundLookup.Clear();
+        
+        if (soundBank != null && soundBank.soundEffects != null)
+        {
+            foreach (var soundEffect in soundBank.soundEffects)
+            {
+                if (soundEffect != null && !string.IsNullOrEmpty(soundEffect.name))
+                {
+                    soundLookup[soundEffect.name] = soundEffect;
+                }
+            }
+            Debug.Log($"AudioManager: Built sound lookup with {soundLookup.Count} sounds");
+        }
+        else
+        {
+            Debug.LogWarning("AudioManager: SoundBank or soundEffects is null - cannot build sound lookup");
+        }
+    }
+
+    /// <summary>
+    /// Play a sound by name using the streamlined API
+    /// </summary>
+    /// <param name="soundName">Name of the sound to play</param>
+    /// <param name="pitchRandomizationAmount">Amount of pitch randomization (0 = no randomization)</param>
+    public void PlaySound(string soundName, float pitchRandomizationAmount = 0)
+    {
+        if (string.IsNullOrEmpty(soundName))
+        {
+            Debug.LogWarning("AudioManager: PlaySound called with null or empty sound name");
+            return;
+        }
+
+        if (soundLookup.TryGetValue(soundName, out SoundEffect soundEffect))
+        {
+            soundBank.PlaySound(soundEffect, pitchRandomizationAmount);
+        }
+        else
+        {
+            Debug.LogWarning($"AudioManager: Sound '{soundName}' not found in sound bank. Available sounds: {string.Join(", ", soundLookup.Keys)}");
+        }
+    }
+
+    /// <summary>
+    /// Check if a sound exists in the sound bank
+    /// </summary>
+    /// <param name="soundName">Name of the sound to check</param>
+    /// <returns>True if the sound exists</returns>
+    public bool HasSound(string soundName)
+    {
+        return soundLookup.ContainsKey(soundName);
+    }
+
+    /// <summary>
+    /// Get all available sound names
+    /// </summary>
+    /// <returns>Array of sound names</returns>
+    public string[] GetAvailableSounds()
+    {
+        return soundLookup.Keys.ToArray();
+    }
+
+    /// <summary>
+    /// Refresh the sound lookup dictionary (useful when sounds are added at runtime)
+    /// </summary>
+    public void RefreshSoundLookup()
+    {
+        BuildSoundLookup();
     }
 
     public void SetMixerValue(AudioMixer mixer, string mixerParameter, float percentage)

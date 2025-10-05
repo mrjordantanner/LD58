@@ -23,7 +23,7 @@ public class Parallax : MonoBehaviour
 
     private void Update()
     {
-        if (isActive && GameManager.Instance.gameRunning && !GameManager.Instance.gamePaused)
+        if (isActive && GameManager.Instance.IsGameRunning() && !GameManager.Instance.IsGamePaused())
         {
             HandleParallaxMotion();
         }

@@ -64,6 +64,7 @@ public class EventManager : MonoBehaviour, IInitializable
         }
         
         eventSubscriptions[eventName].Add(callback);
+        Debug.Log($"EventManager: Subscribed to '{eventName}'. Total subscribers: {eventSubscriptions[eventName].Count}");
     }
 
     /// <summary>
@@ -147,10 +148,12 @@ public class EventManager : MonoBehaviour, IInitializable
     /// <param name="data">Data to pass to subscribers</param>
     public void TriggerEvent(string eventName, object data = null)
     {
+        Debug.Log($"EventManager: Triggering event '{eventName}' with data: {data}");
+        
         if (eventSubscriptions.ContainsKey(eventName))
         {
-            // Create a copy of the list to avoid issues if subscribers modify the list during iteration
             var callbacks = new List<Action<object>>(eventSubscriptions[eventName]);
+            Debug.Log($"EventManager: Found {callbacks.Count} subscribers for '{eventName}'");
             
             foreach (var callback in callbacks)
             {
@@ -163,6 +166,10 @@ public class EventManager : MonoBehaviour, IInitializable
                     Debug.LogError($"EventManager: Error in event callback for '{eventName}': {e.Message}");
                 }
             }
+        }
+        else
+        {
+            Debug.LogWarning($"EventManager: No subscribers found for event '{eventName}'");
         }
     }
 
@@ -318,6 +325,37 @@ public class EventManager : MonoBehaviour, IInitializable
     /// Event triggered when the level changes
     /// </summary>
     public const string LEVEL_CHANGED = "LevelChanged";
+    
+    // Progression Events
+    /// <summary>
+    /// Event triggered when a level starts
+    /// </summary>
+    public const string LEVEL_STARTED = "LevelStarted";
+    
+    /// <summary>
+    /// Event triggered when a level is completed
+    /// </summary>
+    public const string LEVEL_COMPLETED = "LevelCompleted";
+    
+    /// <summary>
+    /// Event triggered when a level fails
+    /// </summary>
+    public const string LEVEL_FAILED = "LevelFailed";
+    
+    /// <summary>
+    /// Event triggered when a round starts
+    /// </summary>
+    public const string ROUND_STARTED = "RoundStarted";
+    
+    /// <summary>
+    /// Event triggered when a round is completed
+    /// </summary>
+    public const string ROUND_COMPLETED = "RoundCompleted";
+    
+    /// <summary>
+    /// Event triggered when a round fails
+    /// </summary>
+    public const string ROUND_FAILED = "RoundFailed";
 
     #endregion
 

@@ -18,12 +18,27 @@ public class PlayerCharacter : Character
 
     public LayerMask obstacleLayer;
 
+    [Header("Character Graphics")]
+    public SpriteRenderer graphicBack;
+    public SpriteRenderer graphicTopLeft, graphicTopRight, graphicBottomLeft, graphicBottomRight;
+
+
     void Awake()
     {
         if (!rb) rb = GetComponent<Rigidbody2D>();
         if (!spriteRenderer) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         if (!trails) trails = GetComponentInChildren<SpriteTrails>();
         if (!spriteFlicker) spriteFlicker = GetComponentInChildren<SpriteFlicker>();
+
+        // Set the sprite renderer color to the theme's primary light color
+        if (spriteRenderer != null && ThemeController.Instance != null)
+        {
+            spriteRenderer.color = ThemeController.Instance.GetColor("primaryLight");
+        }
+        else if (spriteRenderer == null)
+        {
+            Debug.LogWarning($"PlayerCharacter: No SpriteRenderer found on {name} or its children");
+        }
 
         if (PlayerManager.Instance) PlayerManager.Instance.UpdatePlayerRef(this);
 
@@ -32,7 +47,7 @@ public class PlayerCharacter : Character
 
     void Update()
     {
-        if (!GameManager.Instance.gameRunning || GameManager.Instance.gamePaused) return;
+        if (!GameManager.Instance.IsGameRunning() || GameManager.Instance.IsGamePaused()) return;
 
         HandleAnimation();
     }

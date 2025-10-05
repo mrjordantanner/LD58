@@ -32,11 +32,16 @@ public class VFX : MonoBehaviour
     public Material shootFlashMaterial;
     public Material imageFlashMaterial;
 
+    public GameObject BackgroundGraphics;
+
     [HideInInspector] public ColorAdjustments colorAdjustments;
+    [HideInInspector] public SpriteRenderer backgroundSpriteRenderer;
 
     void Init()
     {
         VFXContainer = new GameObject("VFXContainer");
+
+        backgroundSpriteRenderer = BackgroundGraphics.GetComponent<SpriteRenderer>();
     }
 
     public IEnumerator StartDamageEffects()
