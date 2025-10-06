@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using DG.Tweening;
 
 /// <summary>
 /// Serializable theme data structure
@@ -169,6 +170,17 @@ public class ThemeController : MonoBehaviour, IInitializable
             Debug.LogWarning("ThemeController: VFX.Instance or backgroundSpriteRenderer not found!");
         }
 
+        // Apply accent color to iPhone frame sprite renderer
+        if (VFX.Instance != null && VFX.Instance.iphoneFrameSpriteRenderer != null)
+        {
+            VFX.Instance.iphoneFrameSpriteRenderer.color = theme.accentColor;
+            Debug.Log($"ThemeController: Applied accent color to iPhone frame sprite renderer");
+        }
+        else
+        {
+            Debug.LogWarning("ThemeController: VFX.Instance or iphoneFrameSpriteRenderer not found!");
+        }
+
         // Apply accent color to all existing balls
         BallMovement[] allBalls = FindObjectsOfType<BallMovement>();
         foreach (BallMovement ball in allBalls)
@@ -201,6 +213,148 @@ public class ThemeController : MonoBehaviour, IInitializable
         {
             Debug.LogWarning("ThemeController: PlayerCharacter not found!");
         }
+    }
+
+    /// <summary>
+    /// Applies theme colors with smooth tweening transitions
+    /// </summary>
+    /// <param name="theme">The theme to apply</param>
+    /// <param name="duration">Duration of the color transition in seconds</param>
+    /// <param name="ease">Easing type for the transition</param>
+    private void ApplyThemeColorsWithTween(Theme theme, float duration = 1f, Ease ease = Ease.OutQuart)
+    {
+        Debug.Log($"ThemeController: Applying theme '{theme.themeName}' with {duration}s tween transition");
+        
+        // Tween background color
+        if (VFX.Instance != null && VFX.Instance.backgroundSpriteRenderer != null)
+        {
+            VFX.Instance.backgroundSpriteRenderer.DOColor(theme.backgroundColor, duration).SetEase(ease);
+            Debug.Log("ThemeController: Tweening background color");
+        }
+        else
+        {
+            Debug.LogWarning("ThemeController: VFX.Instance or backgroundSpriteRenderer not found!");
+        }
+
+        // Tween iPhone frame accent color
+        if (VFX.Instance != null && VFX.Instance.iphoneFrameSpriteRenderer != null)
+        {
+            VFX.Instance.iphoneFrameSpriteRenderer.DOColor(theme.accentColor, duration).SetEase(ease);
+            Debug.Log("ThemeController: Tweening iPhone frame accent color");
+        }
+        else
+        {
+            Debug.LogWarning("ThemeController: VFX.Instance or iphoneFrameSpriteRenderer not found!");
+        }
+
+        // Apply accent color to all existing balls (INSTANT - no tweening)
+        BallMovement[] allBalls = FindObjectsOfType<BallMovement>();
+        foreach (BallMovement ball in allBalls)
+        {
+            SpriteRenderer ballRenderer = ball.GetComponent<SpriteRenderer>();
+            if (ballRenderer != null)
+            {
+                ballRenderer.color = theme.accentColor; // Instant application
+            }
+        }
+        Debug.Log($"ThemeController: Applied accent color instantly to {allBalls.Length} balls");
+
+        // Tween foreground color for player sprites
+        PlayerCharacter playerCharacter = FindObjectOfType<PlayerCharacter>();
+        if (playerCharacter != null)
+        {
+            // Tween player sprite renderers (excluding graphicBack)
+            if (playerCharacter.graphicTopLeft != null)
+                playerCharacter.graphicTopLeft.DOColor(theme.foregroundColor, duration).SetEase(ease);
+            if (playerCharacter.graphicTopRight != null)
+                playerCharacter.graphicTopRight.DOColor(theme.foregroundColor, duration).SetEase(ease);
+            if (playerCharacter.graphicBottomLeft != null)
+                playerCharacter.graphicBottomLeft.DOColor(theme.foregroundColor, duration).SetEase(ease);
+            if (playerCharacter.graphicBottomRight != null)
+                playerCharacter.graphicBottomRight.DOColor(theme.foregroundColor, duration).SetEase(ease);
+            
+            Debug.Log("ThemeController: Tweening foreground color for player sprites");
+        }
+        else
+        {
+            Debug.LogWarning("ThemeController: PlayerCharacter not found!");
+        }
+    }
+
+    /// <summary>
+    /// Applies a theme with smooth color transitions
+    /// </summary>
+    /// <param name="themeName">Name of the theme to apply</param>
+    /// <param name="duration">Duration of the color transition in seconds</param>
+    /// <param name="ease">Easing type for the transition</param>
+    public void ApplyThemeWithTween(string themeName, float duration = 1f, Ease ease = Ease.OutQuart)
+    {
+        Theme theme = GetThemeByName(themeName);
+        if (theme != null)
+        {
+            currentThemeName = themeName;
+            ApplyThemeColorsWithTween(theme, duration, ease);
+            Debug.Log($"ThemeController: Applied theme '{themeName}' with {duration}s tween");
+        }
+        else
+        {
+            Debug.LogWarning($"ThemeController: Theme '{themeName}' not found, using fallback theme");
+            currentThemeName = fallbackTheme.themeName;
+            ApplyThemeColorsWithTween(fallbackTheme, duration, ease);
+        }
+    }
+
+    /// <summary>
+    /// Applies a theme for a level with smooth color transitions
+    /// </summary>
+    /// <param name="level">The level to get theme for</param>
+    /// <param name="duration">Duration of the color transition in seconds</param>
+    /// <param name="ease">Easing type for the transition</param>
+    public void ApplyThemeForLevelWithTween(int level, float duration = 1f, Ease ease = Ease.OutQuart)
+    {
+        currentLevel = level;
+        
+        // Level 1 uses themes[0], Level 2 uses themes[1], etc.
+        int themeIndex = level - 1;
+        
+        if (themeIndex >= 0 && themeIndex < themes.Length)
+        {
+            Theme theme = themes[themeIndex];
+            currentThemeName = theme.themeName;
+            ApplyThemeColorsWithTween(theme, duration, ease);
+            Debug.Log($"ThemeController: Applied theme '{theme.themeName}' for level {level} with {duration}s tween");
+        }
+        else
+        {
+            currentThemeName = fallbackTheme.themeName;
+            ApplyThemeColorsWithTween(fallbackTheme, duration, ease);
+            Debug.LogWarning($"ThemeController: No theme found for level {level}, using fallback theme with tween");
+        }
+    }
+
+    /// <summary>
+    /// Applies theme colors to a specific player character with smooth tweening
+    /// </summary>
+    /// <param name="playerCharacter">The player character to theme</param>
+    /// <param name="duration">Duration of the color transition in seconds</param>
+    /// <param name="ease">Easing type for the transition</param>
+    public void ApplyThemeToPlayerWithTween(PlayerCharacter playerCharacter, float duration = 0.5f, Ease ease = Ease.OutQuart)
+    {
+        if (playerCharacter == null) return;
+
+        Theme currentTheme = GetCurrentTheme();
+        
+        // Tween foreground color for the 4 player graphics renderers
+        if (playerCharacter.graphicTopLeft != null)
+            playerCharacter.graphicTopLeft.DOColor(currentTheme.foregroundColor, duration).SetEase(ease);
+        if (playerCharacter.graphicTopRight != null)
+            playerCharacter.graphicTopRight.DOColor(currentTheme.foregroundColor, duration).SetEase(ease);
+        if (playerCharacter.graphicBottomLeft != null)
+            playerCharacter.graphicBottomLeft.DOColor(currentTheme.foregroundColor, duration).SetEase(ease);
+        if (playerCharacter.graphicBottomRight != null)
+            playerCharacter.graphicBottomRight.DOColor(currentTheme.foregroundColor, duration).SetEase(ease);
+        
+        Debug.Log($"ThemeController: Tweened foreground color for player sprites over {duration}s");
     }
 
     /// <summary>

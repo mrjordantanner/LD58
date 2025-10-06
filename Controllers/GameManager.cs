@@ -144,9 +144,48 @@ public class GameManager : MonoBehaviour, IInitializable
     // Button callback
     public void RestartFromPauseMenu()
     {
-        PlayerManager.Instance.DespawnPlayer();
+        Debug.Log("GameManager: RestartFromPauseMenu() called - performing complete reset");
+        
+        // 1) Despawn player
+        if (PlayerManager.Instance != null)
+        {
+            PlayerManager.Instance.DespawnPlayer();
+            Debug.Log("GameManager: Player despawned");
+        }
+        
+        // 2) Clear all balls in play
+        if (SpawnerController.Instance != null)
+        {
+            SpawnerController.Instance.ClearAllBalls();
+            SpawnerController.Instance.EndRound(); // Reset spawner state
+            Debug.Log("GameManager: All balls cleared and spawner reset");
+        }
+        
+        // 3) Reset progression to Level 1 Round 1
+        if (Progression.Instance != null)
+        {
+            // Reset progression state
+            Progression.Instance.currentLevel = 1;
+            Progression.Instance.currentRound = 1;
+            Progression.Instance.totalLevelsCompleted = 0;
+            Progression.Instance.totalRoundsCompleted = 0;
+            Progression.Instance.isLevelActive = false;
+            Progression.Instance.isRoundActive = false;
+            Debug.Log("GameManager: Progression reset to Level 1 Round 1");
+        }
+        
+        // 4) Reset scoring system
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.ResetCurrentSession();
+            Debug.Log("GameManager: Scoring system reset");
+        }
+        
+        // 4) Hide pause menu and restart game flow
         Menu.Instance.BackToGame();
         ReplayGame();
+        
+        Debug.Log("GameManager: Complete restart sequence initiated");
     }
 
     public void ReplayGame()
@@ -166,8 +205,8 @@ public class GameManager : MonoBehaviour, IInitializable
         // Handle screen fade if it's player's first playthrough
         if (!isReplay)
         {
-            HUD.Instance.screenFader.FadeToWhite(1f);
-            yield return new WaitForSecondsRealtime(1f);
+            //HUD.Instance.screenFader.FadeToWhite(1f);
+            yield return new WaitForSecondsRealtime(0f);
 
             Menu.Instance.FullscreenMenuBackground.SetActive(false);
             Menu.Instance.NameEntryPanel.Hide();
@@ -177,8 +216,6 @@ public class GameManager : MonoBehaviour, IInitializable
         //PlayerManager.Instance.RefillLives();
 
         PlayerData.Instance.Data.ResetGameSessionData();
-
-        Debug.Log("GameManager: About to start StartRun()");
         StartCoroutine(StartRun());
     }
 
@@ -282,6 +319,9 @@ public class GameManager : MonoBehaviour, IInitializable
         // Hide UI elements
         HUD.Instance.Hide();
 
+        Scoring.Instance.SaveCurrentScore();
+        Debug.Log($"GameManager: Saved current score {Scoring.Instance.GetScoreForLeaderboard()} to PlayerData");
+        
         // Save data and update leaderboard
         PlayerData.Instance.SaveAllAsync();
         LeaderboardService.Instance.OnPlaySessionEnd();

@@ -8,6 +8,7 @@ public class LocalPlayerData : ScriptableObject
     [ReadOnly] public string PlayerName;
     [ReadOnly] public int PlayerScore;
     [ReadOnly] public int PlayerBestScore;
+    [ReadOnly] public string LastRoundCompleted;
     [ReadOnly] public int Replays;
     [ReadOnly] public float TotalTimeElapsed;
 
@@ -28,6 +29,7 @@ public class LocalPlayerData : ScriptableObject
 
         PlayerName = defaultPlayerName;
         PlayerBestScore = 0;
+        LastRoundCompleted = "0-0";
         Replays = 0;
         TotalTimeElapsed = 0;
 

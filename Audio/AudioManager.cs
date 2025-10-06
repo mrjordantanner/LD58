@@ -75,20 +75,47 @@ public class AudioManager : MonoBehaviour, IInitializable
     {
         soundLookup.Clear();
         
-        if (soundBank != null && soundBank.soundEffects != null)
+        if (soundBank == null)
         {
-            foreach (var soundEffect in soundBank.soundEffects)
+            Debug.LogError("AudioManager: SoundBank is null - cannot build sound lookup");
+            return;
+        }
+        
+        if (soundBank.soundEffects == null)
+        {
+            Debug.LogError("AudioManager: SoundBank.soundEffects is null - cannot build sound lookup");
+            return;
+        }
+        
+        int validSounds = 0;
+        int invalidSounds = 0;
+        
+        foreach (var soundEffect in soundBank.soundEffects)
+        {
+            if (soundEffect != null && !string.IsNullOrEmpty(soundEffect.name))
             {
-                if (soundEffect != null && !string.IsNullOrEmpty(soundEffect.name))
+                soundLookup[soundEffect.name] = soundEffect;
+                validSounds++;
+            }
+            else
+            {
+                invalidSounds++;
+                if (soundEffect == null)
                 {
-                    soundLookup[soundEffect.name] = soundEffect;
+                    Debug.LogError("AudioManager: Found null SoundEffect in sound bank");
+                }
+                else if (string.IsNullOrEmpty(soundEffect.name))
+                {
+                    Debug.LogError("AudioManager: Found SoundEffect with null or empty name");
                 }
             }
-            Debug.Log($"AudioManager: Built sound lookup with {soundLookup.Count} sounds");
         }
-        else
+        
+        Debug.Log($"AudioManager: Built sound lookup with {validSounds} valid sounds, {invalidSounds} invalid sounds");
+        
+        if (invalidSounds > 0)
         {
-            Debug.LogWarning("AudioManager: SoundBank or soundEffects is null - cannot build sound lookup");
+            Debug.LogError($"AudioManager: {invalidSounds} invalid sound effects found in sound bank - check for null effects or empty names");
         }
     }
 
@@ -101,7 +128,7 @@ public class AudioManager : MonoBehaviour, IInitializable
     {
         if (string.IsNullOrEmpty(soundName))
         {
-            Debug.LogWarning("AudioManager: PlaySound called with null or empty sound name");
+            Debug.LogError("AudioManager: PlaySound called with null or empty sound name");
             return;
         }
 
@@ -111,7 +138,22 @@ public class AudioManager : MonoBehaviour, IInitializable
         }
         else
         {
-            Debug.LogWarning($"AudioManager: Sound '{soundName}' not found in sound bank. Available sounds: {string.Join(", ", soundLookup.Keys)}");
+            Debug.LogError($"AudioManager: Sound '{soundName}' not found in sound bank!");
+            Debug.LogError($"Available sounds ({soundLookup.Count}): {string.Join(", ", soundLookup.Keys)}");
+            
+            // Additional debugging info
+            if (soundBank == null)
+            {
+                Debug.LogError("AudioManager: SoundBank is null!");
+            }
+            else if (soundBank.soundEffects == null)
+            {
+                Debug.LogError("AudioManager: SoundBank.soundEffects is null!");
+            }
+            else
+            {
+                Debug.LogError($"AudioManager: SoundBank has {soundBank.soundEffects.Length} sound effects");
+            }
         }
     }
 

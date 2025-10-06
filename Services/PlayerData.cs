@@ -35,12 +35,7 @@ public class PlayerData : MonoBehaviour
     string PlayerScore = nameof(PlayerScore);
     string PlayerBestScore = nameof(PlayerBestScore);
     string LastRoundCompleted = nameof(LastRoundCompleted);
-    string LastRoundTime = nameof(LastRoundTime);
     string Replays = nameof(Replays);
-    string ShotsFired = nameof(ShotsFired);
-    string ShotsHit = nameof(ShotsHit);
-    string Accuracy = nameof(Accuracy);
-    string TargetsDestroyed = nameof(TargetsDestroyed);
     string TotalTimeElapsed = nameof(TotalTimeElapsed);
 
 
@@ -71,6 +66,7 @@ public class PlayerData : MonoBehaviour
         Data.PlayerName = GetStringFromData(PlayerName, data);
         Data.PlayerScore = GetIntFromData(PlayerScore, data);
         Data.PlayerBestScore = GetIntFromData(PlayerBestScore, data);
+        Data.LastRoundCompleted = GetStringFromData(LastRoundCompleted, data);
         Data.Replays = GetIntFromData(Replays, data);
 
         if (GameManager.Instance.cloudLogging) print("PlayerData: Local PlayerData has been set");
@@ -115,6 +111,7 @@ public class PlayerData : MonoBehaviour
                 { PlayerName, Data.PlayerName },
                 { PlayerScore, Data.PlayerScore },
                 { PlayerBestScore, Data.PlayerBestScore },
+                { LastRoundCompleted, Data.LastRoundCompleted },
                 { Replays, Data.Replays },
                 { TotalTimeElapsed, Data.TotalTimeElapsed },
             };
@@ -132,6 +129,31 @@ public class PlayerData : MonoBehaviour
     public async Task ClearAllPlayerData()
     {
         await Data.ResetAllToDefaults();
+    }
+
+    /// <summary>
+    /// Updates the last round completed and saves it to the cloud
+    /// </summary>
+    /// <param name="roundProgress">Progress string in format "level-round" (e.g., "2-5")</param>
+    public async Task UpdateLastRoundCompleted(string roundProgress)
+    {
+        Data.LastRoundCompleted = roundProgress;
+        
+        try
+        {
+            var saveData = new Dictionary<string, object>
+            {
+                { LastRoundCompleted, Data.LastRoundCompleted }
+            };
+            await CloudSaveService.Instance.Data.Player.SaveAsync(saveData);
+            
+            if (GameManager.Instance.cloudLogging) 
+                print($"PlayerData: LastRoundCompleted updated to '{roundProgress}' and saved to Cloud.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"An exception occurred while saving LastRoundCompleted: {ex}");
+        }
     }
 
 

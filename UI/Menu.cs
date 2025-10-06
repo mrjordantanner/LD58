@@ -174,6 +174,7 @@ public class Menu : MonoBehaviour, IInitializable
     {
         PlayClickSound();
         StartCoroutine(LoadLeaderboardPanel());
+        TitleScreenPanel.Hide();
     }
 
     IEnumerator LoadLeaderboardPanel()

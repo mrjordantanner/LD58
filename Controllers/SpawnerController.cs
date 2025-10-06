@@ -345,6 +345,13 @@ public class SpawnerController : MonoBehaviour, IInitializable
             ball.name = $"Ball_{totalBallsSpawned}";
             totalBallsSpawned++;
 
+            // Start round timer right when ball is instantiated
+            if (Scoring.Instance != null)
+            {
+                Scoring.Instance.StartRound();
+                Debug.Log("SpawnerController: Started round timer when ball was instantiated");
+            }
+
             // Configure the ball with random physics properties
             ConfigureBall(ball);
             

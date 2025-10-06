@@ -156,10 +156,10 @@ public class PlayerManager : MonoBehaviour, IInitializable
         PlayerGraphicsRef = playerCharacter.PlayerGraphics;
         UpdatePlayerRef(playerCharacter);
 
-        // Apply current theme colors to the player sprites
+        // Apply current theme colors to the player sprites with smooth transition
         if (ThemeController.Instance != null)
         {
-            ThemeController.Instance.ApplyThemeToPlayer(playerCharacter);
+            ThemeController.Instance.ApplyThemeToPlayerWithTween(playerCharacter, 0.8f, Ease.OutQuart);
         }
 
         Debug.Log("PlayerManager: Player spawned successfully");

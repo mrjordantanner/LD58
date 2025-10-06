@@ -234,6 +234,9 @@ public class Collector : MonoBehaviour
 
         AudioManager.Instance.PlaySound("Shut-1");
 
+        // Flash player sprites to accent color during contraction
+        FlashPlayerSpritesToAccentColor();
+
         // Create the contraction sequence
         expansionTween = DOTween.Sequence()
             // Move quadrants back to original positions
@@ -249,10 +252,10 @@ public class Collector : MonoBehaviour
             .Join(bottomRightQuadrant != null ? 
                 bottomRightQuadrant.DOLocalMove(bottomRightOriginalPos, contractDuration)
                 .SetEase(Ease.InQuad) : null)
-            // Add fast rotation and color change during contraction
+            // Add fast rotation with elastic easing for extra elasticity and snappiness
             .Join(useRotation && GraphicsObject != null ? 
                 GraphicsObject.transform.DORotate(new Vector3(0, 0, contractRotationSpeed), contractDuration, RotateMode.FastBeyond360)
-                .SetEase(Ease.InQuad) : null)
+                .SetEase(Ease.OutElastic) : null)
             .Join(useColorChange && graphicsSpriteRenderer != null ? 
                 graphicsSpriteRenderer.DOColor(GetActualColor(contractColor, "accent"), contractDuration)
                 .SetEase(Ease.InQuad) : null)
@@ -283,6 +286,42 @@ public class Collector : MonoBehaviour
                 // Mark collection as successful
                 collectionSuccessful = true;
                 collision.GetComponent<Collectible>().Collect();
+                
+                // Play hit sound when ball is captured
+                if (AudioManager.Instance != null)
+                {
+                    AudioManager.Instance.PlaySound("Hit-1");
+                }
+                
+                // Flash success color on screen instantly when capture is made
+                VFX.Instance.FlashSuccessColor();
+
+                // Create reflex floating text based on capture time
+                CreateReflexFloatingText();
+
+                Debug.Log("Collector: Scoring.Instance found, proceeding with bonus calculations");
+                    
+                // Award reflex bonus for quick capture
+                Scoring.Instance.AwardReflexBonus();
+                    
+                // Award accuracy bonus for precise capture
+                float overlapPercentage = usePreciseDetection ? 
+                    CalculateOverlapRatioPrecise(collision) : 
+                    CalculateOverlapRatio(collision);
+                    
+                // If overlap calculation failed (0%), use a reasonable fallback for display
+                if (overlapPercentage <= 0f)
+                {
+                    Debug.Log("Collector: Overlap calculation failed, using fallback percentage for display");
+                    overlapPercentage = 0.8f; // 80% for display purposes
+                }
+                    
+                Scoring.Instance.AwardAccuracyBonus(overlapPercentage);
+                    
+                // Create floating text for bonuses
+                Debug.Log($"Collector: Creating floating text for overlap: {overlapPercentage:P1} at position: {transform.position}");
+                Scoring.Instance.CreateBonusFloatingText(overlapPercentage, transform.position);
+
             }
             else
             {
@@ -298,11 +337,71 @@ public class Collector : MonoBehaviour
                         //HUD.Instance.ShowAlertMessage("ROUND FAILED!", 0.3f, 2f, 0.5f);
                     }
                 }
-                else if (!IsBallInPlay())
-                {
-                    Debug.Log("Collector: Collection attempt failed but ball is not in play - no failure triggered");
-                }
             }
+        }
+    }
+
+    /// <summary>
+    /// Quickly flashes the player sprites to accent color during contraction
+    /// </summary>
+    private void FlashPlayerSpritesToAccentColor()
+    {
+        PlayerCharacter playerCharacter = FindObjectOfType<PlayerCharacter>();
+        if (playerCharacter == null) return;
+
+        // Get current theme accent color
+        Color accentColor = Color.blue; // Default fallback
+        if (ThemeController.Instance != null)
+        {
+            accentColor = ThemeController.Instance.GetAccentColor();
+        }
+
+        // Get current theme foreground color
+        Color foregroundColor = Color.white; // Default fallback
+        if (ThemeController.Instance != null)
+        {
+            foregroundColor = ThemeController.Instance.GetForegroundColor();
+        }
+
+        // Flash duration should be quick and snappy to match contraction
+        float flashDuration = contractDuration * 0.3f; // 30% of contraction duration
+
+        // Flash all 4 player graphics renderers to accent color
+        if (playerCharacter.graphicTopLeft != null)
+        {
+            playerCharacter.graphicTopLeft.DOColor(accentColor, flashDuration * 0.5f)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() => {
+                    playerCharacter.graphicTopLeft.DOColor(foregroundColor, flashDuration * 0.5f)
+                        .SetEase(Ease.InQuad);
+                });
+        }
+        if (playerCharacter.graphicTopRight != null)
+        {
+            playerCharacter.graphicTopRight.DOColor(accentColor, flashDuration * 0.5f)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() => {
+                    playerCharacter.graphicTopRight.DOColor(foregroundColor, flashDuration * 0.5f)
+                        .SetEase(Ease.InQuad);
+                });
+        }
+        if (playerCharacter.graphicBottomLeft != null)
+        {
+            playerCharacter.graphicBottomLeft.DOColor(accentColor, flashDuration * 0.5f)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() => {
+                    playerCharacter.graphicBottomLeft.DOColor(foregroundColor, flashDuration * 0.5f)
+                        .SetEase(Ease.InQuad);
+                });
+        }
+        if (playerCharacter.graphicBottomRight != null)
+        {
+            playerCharacter.graphicBottomRight.DOColor(accentColor, flashDuration * 0.5f)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() => {
+                    playerCharacter.graphicBottomRight.DOColor(foregroundColor, flashDuration * 0.5f)
+                        .SetEase(Ease.InQuad);
+                });
         }
     }
 
@@ -335,6 +434,7 @@ public class Collector : MonoBehaviour
             shakeTween = null;
         });
     }
+
 
     /// <summary>
     /// Determines if a collectible should be collected based on overlap detection
@@ -369,13 +469,20 @@ public class Collector : MonoBehaviour
         Bounds collectorBounds = coll.bounds;
         Bounds collectibleBounds = collectibleCollider.bounds;
 
+        // Debug.Log($"Collector: Collector bounds: {collectorBounds}, Ball bounds: {collectibleBounds}");
+        // Debug.Log($"Collector: Ball collider: {collectibleCollider.name}, enabled: {collectibleCollider.enabled}, isTrigger: {collectibleCollider.isTrigger}");
+        // Debug.Log($"Collector: Ball collider size: {collectibleCollider.bounds.size}, center: {collectibleCollider.bounds.center}");
+
         // Calculate the intersection bounds
         Vector3 intersectionMin = Vector3.Max(collectorBounds.min, collectibleBounds.min);
         Vector3 intersectionMax = Vector3.Min(collectorBounds.max, collectibleBounds.max);
 
+        // Debug.Log($"Collector: Intersection min: {intersectionMin}, max: {intersectionMax}");
+
         // Check if there's any intersection
         if (intersectionMin.x >= intersectionMax.x || intersectionMin.y >= intersectionMax.y)
         {
+            Debug.Log("Collector: No intersection detected");
             return 0f; // No intersection
         }
 
@@ -385,8 +492,11 @@ public class Collector : MonoBehaviour
         // Calculate collectible area
         float collectibleArea = collectibleBounds.size.x * collectibleBounds.size.y;
 
+        float ratio = Mathf.Clamp01(intersectionArea / collectibleArea);
+        // Debug.Log($"Collector: Intersection area: {intersectionArea}, Ball area: {collectibleArea}, Ratio: {ratio:P1}");
+
         // Return the ratio (0.0 to 1.0)
-        return Mathf.Clamp01(intersectionArea / collectibleArea);
+        return ratio;
     }
 
     /// <summary>
@@ -488,14 +598,8 @@ public class Collector : MonoBehaviour
             if (IsBallInPlay() && Progression.Instance != null && Progression.Instance.IsInRound())
             {
                 Progression.Instance.FailRound();
-                //Debug.Log("Collector: Round failed - no collectible collected during window");
-                
-                // Test alert for round failure
-                //HUD.Instance.ShowAlertMessage("ROUND FAILED", 0.3f, 2f, 0.5f);
-            }
-            else if (!IsBallInPlay())
-            {
-                Debug.Log("Collector: No collectible collected during window but ball is not in play - no failure triggered");
+                CameraShaker.Instance.Shake(CameraShaker.ShakeStyle.Large);
+
             }
         }
 
@@ -613,6 +717,62 @@ public class Collector : MonoBehaviour
     /// <summary>
     /// Clean up tweens and coroutines when object is destroyed
     /// </summary>
+    /// <summary>
+    /// Creates floating text showing reflex rating and points based on capture time
+    /// </summary>
+    private void CreateReflexFloatingText()
+    {
+        if (VFX.Instance == null || HUD.Instance == null || Scoring.Instance == null)
+        {
+            Debug.LogWarning("Collector: Required instances not found for reflex floating text");
+            return;
+        }
+
+        // Calculate capture time
+        float captureTime = Time.time - Scoring.Instance.roundStartTime;
+        
+        // Get reflex rating and points from Scoring system
+        string reflexRating = GetReflexRating(captureTime);
+        int reflexPoints = GetReflexPoints(captureTime);
+        
+        if (reflexPoints > 0)
+        {
+            string reflexText = $"{reflexRating} +{reflexPoints}";
+            Vector3 textPosition = transform.position + Vector3.up * 1f; // 1 unit above collector
+            
+            Debug.Log($"Collector: Creating reflex floating text: '{reflexText}' at {textPosition}");
+            VFX.Instance.CreateFloatingText(
+                reflexText,
+                textPosition,
+                HUD.Instance.successColor, // Green success color
+                1.5f, // duration
+                1f // scale
+            );
+        }
+    }
+
+    /// <summary>
+    /// Gets reflex rating based on capture time
+    /// </summary>
+    private string GetReflexRating(float captureTime)
+    {
+        if (captureTime <= 2f) return "Fast!";
+        else if (captureTime <= 4f) return "Quick";
+        else if (captureTime <= 6f) return "Slow";
+        else return "Slow";
+    }
+
+    /// <summary>
+    /// Gets reflex points based on capture time
+    /// </summary>
+    private int GetReflexPoints(float captureTime)
+    {
+        if (captureTime <= 2f) return 500; // High reflex bonus
+        else if (captureTime <= 4f) return 300; // Medium reflex bonus
+        else if (captureTime <= 6f) return 100; // Low reflex bonus
+        else return 0; // No bonus
+    }
+
     private void OnDestroy()
     {
         if (expansionTween != null && expansionTween.IsActive())

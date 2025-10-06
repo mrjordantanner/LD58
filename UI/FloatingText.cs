@@ -3,54 +3,61 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 using UnityEngine.UI;
-using System;
 
 public class FloatingText : MonoBehaviour
 {
-    TextMeshProUGUI text;
-    Image icon;
+    [HideInInspector] public TextMeshProUGUI text;
+    [HideInInspector] public Image icon;
 
-    private void Awake()
+    private CanvasGroup canvasGroup;
+    private float timer = 0f;
+
+    void Awake()
     {
-        icon = GetComponentInChildren<Image>();
-    }
-
-    public void SetProperties(string textString, Color textColor, bool showIcon = false)
-    {
-        Destroy(gameObject, 2f);
-
         text = GetComponent<TextMeshProUGUI>();
-        text.color = textColor;
-        text.text = textString;
+        canvasGroup = GetComponent<CanvasGroup>();
+        icon = GetComponentInChildren<Image>();
 
-        icon.enabled = showIcon;
-        StartCoroutine(Effects());
+        // Use VFX controller lifespan
+        Destroy(gameObject, VFX.Instance.FloatingTextLifespan);
     }
 
-    IEnumerator Effects()
+    void Update()
     {
-        //var oldScale = text.transform.localScale;
-        //var newScale = new Vector3(
-        //    text.transform.localScale.x,
-        //    text.transform.localScale.y,
-        //    text.transform.localScale.z) * HUD.Instance.scaleSize;
+        // Use VFX controller float speed
+        transform.Translate(VFX.Instance.FloatingTextFloatSpeed * Time.deltaTime * Vector3.up);
+        timer += Time.deltaTime;
 
-        //// Scale up
-        //text.transform.DOScale(newScale, HUD.Instance.scaleUpDuration).SetEase(Ease.OutElastic);
-        //yield return new WaitForSeconds(HUD.Instance.scaleUpDuration);
+        // Fade out over lifespan
+        if (canvasGroup != null)
+            canvasGroup.alpha = Mathf.Lerp(1f, 0f, timer / VFX.Instance.FloatingTextLifespan);
 
-        //// Scale down
-        //text.transform.DOScale(oldScale, HUD.Instance.scaleDownDuration).SetEase(Ease.OutBounce);
-        //yield return new WaitForSeconds(HUD.Instance.fadeDelay);
+        if (timer > VFX.Instance.FloatingTextLifespan)
+            Destroy(gameObject);
+    }
 
-        yield return new WaitForSeconds(0.5f);
+    public IEnumerator FloatAndFade(float duration)
+    {
+        Vector3 currentScale = text.transform.localScale;
+        Vector3 targetScale = currentScale * VFX.Instance.FloatingTextScaleSize;
 
-        // Fade
-        text.DOFade(0, 0.5f).SetEase(Ease.InQuint);
-        icon.DOFade(0, 0.5f).SetEase(Ease.InQuint);
+        // Scale up with elastic easing
+        text.transform.DOScale(targetScale, VFX.Instance.FloatingTextScaleUpDuration)
+            .SetEase(Ease.OutElastic);
+        yield return new WaitForSeconds(VFX.Instance.FloatingTextScaleUpDuration);
 
+        // Scale down with bounce easing back to original scale
+        text.transform.DOScale(currentScale, VFX.Instance.FloatingTextScaleDownDuration)
+            .SetEase(Ease.OutBounce);
+        yield return new WaitForSeconds(VFX.Instance.FloatingTextScaleDownDuration);
 
+        // Hold at original scale
+        yield return new WaitForSeconds(VFX.Instance.FloatingTextHoldDuration);
 
+        // Fade out text and icon
+        text.DOFade(0, VFX.Instance.FloatingTextFadeDuration).SetEase(Ease.InQuint);
+        if (icon != null)
+            icon.DOFade(0, VFX.Instance.FloatingTextFadeDuration).SetEase(Ease.InQuint);
     }
 }
 

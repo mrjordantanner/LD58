@@ -144,6 +144,7 @@ public class Loader : MonoBehaviour
             }
         }
 
+        yield return new WaitForSecondsRealtime(1);
         StartCoroutine(AudioManager.Instance.InitializeMusic());
     }
 

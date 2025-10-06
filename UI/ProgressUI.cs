@@ -174,8 +174,8 @@ public class ProgressUI : MonoBehaviour, IInitializable
                 progressFadeTween.Kill();
             }
             
-            // Set round failed text and fade in
-            progressLabel.text = "Round Failed";
+            // Set empty text and fade in
+            progressLabel.text = "";
             progressLabel.alpha = 0f;
             
             progressFadeTween = progressLabel.DOFade(1f, progressFadeInDuration)

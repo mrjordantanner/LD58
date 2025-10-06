@@ -149,6 +149,18 @@ public class BallMovement : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, 0.2f);
     }
     
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        // Play bump sound when ball hits obstacles
+        if (collision.gameObject.CompareTag("Obstacles"))
+        {
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.PlaySound("Bump");
+            }
+        }
+    }
+    
     private void OnDestroy()
     {
         StopMovement();

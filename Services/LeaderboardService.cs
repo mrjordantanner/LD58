@@ -27,7 +27,7 @@ public class LeaderboardService : MonoBehaviour, IInitializable
     #endregion
 
     public string Name {  get { return "Leaderboards"; } }
-    const string LEADERBOARD_ID = "Leaderboard_1";
+    const string LEADERBOARD_ID = "Compo";
 
     public LeaderboardScoresPage Scores;
     public LeaderboardEntry PlayerScore;
@@ -75,8 +75,11 @@ public class LeaderboardService : MonoBehaviour, IInitializable
 
     public async Task OnPlaySessionEnd()
     {
-        await PutPlayerScoreAsync(PlayerData.Instance.Data.PlayerScore);
-        print($"Finished PutPlayerScoreAsync at {Time.time}");
+        // Get current score from Scoring system
+        int currentScore = Scoring.Instance != null ? Scoring.Instance.GetScoreForLeaderboard() : PlayerData.Instance.Data.PlayerScore;
+        
+        await PutPlayerScoreAsync(currentScore);
+        print($"Finished PutPlayerScoreAsync with score {currentScore} at {Time.time}");
 
         await GetPaginatedScoresAsync();
         print($"Finished GetPaginatedScoresAsync at {Time.time}");

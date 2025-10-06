@@ -50,4 +50,12 @@ public class ScreenFader : MonoBehaviour
             .OnComplete(() => fadeTween = null);
 
     }
+
+    public void FadeToBlack(float duration)
+    {
+        canvasGroup.alpha = 0;
+        image.color = Color.black;
+        fadeTween = canvasGroup.DOFade(1, duration).SetEase(Ease.InQuint).SetUpdate(UpdateType.Normal, true)
+            .OnComplete(() => fadeTween = null);
+    }
 }

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using System.Collections;
+using DG.Tweening;
 
 /// <summary>
 /// Singleton controller that manages game progression through Levels and Rounds.
@@ -37,6 +38,10 @@ public class Progression : MonoBehaviour, IInitializable
     public int roundsPerLevel = 3;
     public float baseDifficulty = 1f;
     public float difficultyIncreasePerLevel = 0.2f;
+    
+    [Header("Failure Tracking")]
+    public int failureLimit = 10;
+    [ReadOnly] public int failuresThisLevel = 0;
 
     [Header("State")]
     [ReadOnly] public bool isLevelActive = false;
@@ -96,6 +101,7 @@ public class Progression : MonoBehaviour, IInitializable
         currentLevel = levelNumber;
         currentRound = 1;
         roundsCompletedInCurrentLevel = 0;
+        failuresThisLevel = 0; // Reset failure counter for new level
         
         // Calculate difficulty for this level
         float levelDifficulty = baseDifficulty + (levelNumber - 1) * difficultyIncreasePerLevel;
@@ -114,15 +120,22 @@ public class Progression : MonoBehaviour, IInitializable
             Debug.LogWarning("Progression: No DifficultyManager found! Difficulty will not be scaled.");
         }
         
-        // Apply theme for this level
+        // Apply theme for this level with smooth transitions
         if (ThemeController.Instance != null)
         {
-            ThemeController.Instance.ApplyThemeForLevel(levelNumber);
-            Debug.Log($"Progression: Applied theme for level {levelNumber}");
+            ThemeController.Instance.ApplyThemeForLevelWithTween(levelNumber, 1.5f, Ease.OutQuart);
+            Debug.Log($"Progression: Applied theme for level {levelNumber} with smooth transition");
         }
         else
         {
             Debug.LogWarning("Progression: No ThemeController found! Theme will not be applied.");
+        }
+        
+        // Start level tracking in scoring system
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.StartLevel(levelNumber);
+            Debug.Log($"Progression: Started level tracking for level {levelNumber}");
         }
         
         Debug.Log($"Progression: Initialized Level {levelNumber} (Difficulty: {levelDifficulty:F2})");
@@ -146,6 +159,7 @@ public class Progression : MonoBehaviour, IInitializable
         isLevelActive = true;
         isRoundActive = false;
         roundsCompletedInCurrentLevel = 0;
+        failuresThisLevel = 0; // Reset failure counter for new level
         currentLevel = levelNumber;
         
         // Create level data
@@ -162,11 +176,11 @@ public class Progression : MonoBehaviour, IInitializable
             Debug.LogWarning("Progression: No DifficultyManager found! Difficulty will not be scaled.");
         }
         
-        // Apply theme for this level
+        // Apply theme for this level with smooth transitions
         if (ThemeController.Instance != null)
         {
-            ThemeController.Instance.ApplyThemeForLevel(levelNumber);
-            Debug.Log($"Progression: Applied theme for level {levelNumber}");
+            ThemeController.Instance.ApplyThemeForLevelWithTween(levelNumber, 1.5f, Ease.OutQuart);
+            Debug.Log($"Progression: Applied theme for level {levelNumber} with smooth transition");
         }
         
         // Trigger level started event
@@ -184,6 +198,13 @@ public class Progression : MonoBehaviour, IInitializable
         
         isLevelActive = false;
         totalLevelsCompleted++;
+        
+        // Update scoring system for level completion
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.CompleteLevel(currentLevel);
+            Debug.Log($"Progression: Updated scoring for level {currentLevel} completion");
+        }
         
         Debug.Log($"Progression: Level {currentLevel} completed! Starting level completion sequence...");
         
@@ -220,24 +241,10 @@ public class Progression : MonoBehaviour, IInitializable
         if (currentLevel >= maxLevel)
         {
             Debug.Log("Progression: Max level reached! Player has won the game!");
-            
-            // Show congratulations message
-            if (HUD.Instance != null)
-            {
-                HUD.Instance.ShowAlertMessage("Congratulations, you've won!", 0.5f, 5f, 1f);
-            }
-            
-            // Wait for message to display
-            yield return new WaitForSeconds(6f);
-            
-            // Return to main menu
-            if (Menu.Instance != null)
-            {
-                StartCoroutine(Menu.Instance.ReturnToTitleScreen());
-            }
-            
-            Debug.Log("Progression: Game won - returning to title screen");
-            yield break; // Exit the coroutine
+
+            HUD.Instance.ShowAlertMessage("Congratulations, you've won!", 0.5f, 5f, 1f);
+            GameManager.Instance.GameOver();
+            yield break; 
         }
         
         // 6) Increment level and reset round
@@ -290,6 +297,13 @@ public class Progression : MonoBehaviour, IInitializable
         currentRoundData = new Round(roundNumber, currentLevel, currentLevelData.difficulty);
         isRoundActive = true;
         
+        // Start round tracking in scoring system
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.StartRound();
+            Debug.Log($"Progression: Started round tracking for round {currentLevel}-{roundNumber}");
+        }
+        
         Debug.Log($"Progression: Round state set. isRoundActive: {isRoundActive}");
         
         // Spawn player at the beginning of each new round
@@ -339,6 +353,21 @@ public class Progression : MonoBehaviour, IInitializable
         
         Debug.Log($"Progression: Round {currentLevel}-{currentRound} completed! Starting success sequence...");
         
+        // Update LastRoundCompleted in PlayerData and save to cloud
+        if (PlayerData.Instance != null)
+        {
+            string roundProgress = $"{currentLevel}-{currentRound}";
+            PlayerData.Instance.UpdateLastRoundCompleted(roundProgress);
+            Debug.Log($"Progression: Updated LastRoundCompleted to '{roundProgress}'");
+        }
+        
+        // Update scoring system
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.CompleteRound(currentLevel, currentRound);
+            Debug.Log($"Progression: Updated scoring for round {currentLevel}-{currentRound}");
+        }
+        
         // Start the success sequence coroutine
         StartCoroutine(RoundSuccessSequence());
     }
@@ -348,12 +377,13 @@ public class Progression : MonoBehaviour, IInitializable
     /// </summary>
     private System.Collections.IEnumerator RoundSuccessSequence()
     {
+        // Wait 0.5 seconds before showing the round complete alert
+        yield return new WaitForSeconds(0.5f);
+        
         // 1) Show success alert message
         Debug.Log("Progression: Showing round success message...");
-        if (HUD.Instance != null)
-        {
-            HUD.Instance.ShowAlertMessage("Round Complete!", 0.3f, 2f, 0.5f, HUD.Instance.successColor);
-        }
+        HUD.Instance.ShowAlertMessage("Round Complete!", 0.3f, 2f, 0.5f, HUD.Instance.successColor);
+        AudioManager.Instance.PlaySound("Chime-1");
         
         // 2) Trigger round completed event
         Debug.Log("Progression: Triggering round completed event...");
@@ -392,27 +422,28 @@ public class Progression : MonoBehaviour, IInitializable
         Debug.Log("Progression: Waiting 0.5 seconds...");
         yield return new WaitForSeconds(0.5f);
         
-        // 8) Spawn the player
-        Debug.Log("Progression: Respawning player...");
-        if (PlayerManager.Instance != null)
+        // 8) Spawn the player (only if not completing the level)
+        if (roundsCompletedInCurrentLevel < roundsPerLevel)
         {
-            PlayerManager.Instance.SpawnPlayer();
-        }
-        
-        // 9) Wait 0.5 seconds
-        Debug.Log("Progression: Waiting 0.5 seconds...");
-        yield return new WaitForSeconds(0.5f);
-        
-        // 10) Start next round or level
-        Debug.Log("Progression: Starting next round/level...");
-        if (roundsCompletedInCurrentLevel >= roundsPerLevel)
-        {
-            CompleteLevel();
+            Debug.Log("Progression: Respawning player for next round...");
+            if (PlayerManager.Instance != null)
+            {
+                PlayerManager.Instance.SpawnPlayer();
+            }
+            
+            // 9) Wait 0.5 seconds
+            Debug.Log("Progression: Waiting 0.5 seconds...");
+            yield return new WaitForSeconds(0.5f);
+            
+            // 10) Start next round
+            Debug.Log("Progression: Starting next round...");
+            StartRound(currentRound + 1);
         }
         else
         {
-            // Start next round
-            StartRound(currentRound + 1);
+            Debug.Log("Progression: Level completed - player will be spawned when new level starts");
+            // 10) Complete the level (player will be spawned in LevelCompletionSequence)
+            CompleteLevel();
         }
         
         Debug.Log("Progression: Round success sequence complete");
@@ -440,7 +471,28 @@ public class Progression : MonoBehaviour, IInitializable
         
         isRoundActive = false;
         
-        Debug.Log($"Progression: Round {currentLevel}-{currentRound} failed! Starting reset sequence...");
+        // Track failure for this level
+        failuresThisLevel++;
+        Debug.Log($"Progression: Round {currentLevel}-{currentRound} failed! Failures this level: {failuresThisLevel}/{failureLimit}");
+        
+        // Check if failure limit exceeded
+        if (failuresThisLevel >= failureLimit)
+        {
+            Debug.Log($"Progression: Failure limit exceeded ({failuresThisLevel}/{failureLimit})! Triggering game over...");
+            Collectible[] collectibles = FindObjectsOfType<Collectible>();
+            foreach (Collectible collectible in collectibles)
+            {
+                if (collectible != null)
+                {
+                    collectible.DestroyMe();
+                }
+            }
+            PlayerManager.Instance.DespawnPlayer();
+            GameManager.Instance.GameOver();
+            return;
+        }
+        
+        Debug.Log($"Progression: Starting reset sequence...");
         
         // Play round failure sound
         if (AudioManager.Instance != null)
@@ -459,26 +511,12 @@ public class Progression : MonoBehaviour, IInitializable
     private IEnumerator RoundFailureSequence()
     {
         Debug.Log("======= Progression: RoundFailureSequence started  ====");
-        
-        // 1) Show failure alert message
-        Debug.Log("Progression: Showing round failure message...");
-        if (HUD.Instance != null)
-        {
-            HUD.Instance.ShowAlertMessage("Round Failed!", 0.3f, 2f, 0.5f, HUD.Instance.alertColor);
-        }
-        
-        // Suspend input during failure sequence
+
+        VFX.Instance.FlashAlertColor();
+
         GameManager.Instance.inputSuspended = true;
-        
-        // 2) Reset SpawnerController round state
-        Debug.Log("Progression: Resetting SpawnerController round state...");
-        if (SpawnerController.Instance != null)
-        {
-            SpawnerController.Instance.EndRound();
-        }
-        
-        // 3) Immediately destroy collectibles with VFX
-        Debug.Log("Progression: Destroying collectibles...");
+        SpawnerController.Instance.EndRound();
+
         Collectible[] collectibles = FindObjectsOfType<Collectible>();
         foreach (Collectible collectible in collectibles)
         {
@@ -487,39 +525,24 @@ public class Progression : MonoBehaviour, IInitializable
                 collectible.DestroyMe();
             }
         }
-        
+        PlayerManager.Instance.DespawnPlayer();
+
         // Trigger round failed event
+        Scoring.Instance.FailRound();
         EventManager.Instance.TriggerEvent(EventManager.ROUND_FAILED, currentRoundData);
         
-        // 4) Wait 0.5 seconds
-        Debug.Log("Progression: Waiting 0.5 seconds...");
         yield return new WaitForSeconds(0.5f);
-        
-        // 5) Despawn the player
-        Debug.Log("Progression: Despawning player...");
-        if (PlayerManager.Instance != null)
-        {
-            PlayerManager.Instance.DespawnPlayer();
-        }
-        
-        // 6) Wait 0.5 seconds
-        Debug.Log("Progression: Waiting 0.5 seconds...");
+        PlayerManager.Instance.DespawnPlayer();
+
         yield return new WaitForSeconds(0.5f);
-        
-        // 7) Respawn the player and start the round over
-        Debug.Log("Progression: Respawning player and restarting round...");
-        if (PlayerManager.Instance != null)
-        {
-            PlayerManager.Instance.SpawnPlayer();
-        }
-        
+
+        PlayerManager.Instance.SpawnPlayer();
+
         // Start the round over
         Debug.Log($"Progression: Starting round {currentRound} over...");
         StartRound(currentRound);
-        
-        // Restore input - round failure sequence is complete
+
         GameManager.Instance.inputSuspended = false;
-        
         Debug.Log("Progression: Round reset sequence complete");
     }
     #endregion
@@ -594,6 +617,7 @@ public class Progression : MonoBehaviour, IInitializable
         totalLevelsCompleted = 0;
         totalRoundsCompleted = 0;
         roundsCompletedInCurrentLevel = 0;
+        failuresThisLevel = 0; // Reset failure counter
         
         Debug.Log("Progression: Reset to beginning");
     }
