@@ -208,7 +208,7 @@ public class GameManager : MonoBehaviour, IInitializable
             //HUD.Instance.screenFader.FadeToWhite(1f);
             yield return new WaitForSecondsRealtime(0f);
 
-            Menu.Instance.FullscreenMenuBackground.SetActive(false);
+            //Menu.Instance.FullscreenMenuBackground.SetActive(false);
             Menu.Instance.NameEntryPanel.Hide();
         }
 

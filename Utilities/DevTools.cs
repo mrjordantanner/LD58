@@ -62,10 +62,10 @@ public class DevTools : MonoBehaviour
         //    ToggleStatsWindow();
         //}
 
-        if (Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Return))
-        {
-            ToggleDevWindow();
-        }
+        //if (Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Return))
+        //{
+        //    ToggleDevWindow();
+        //}
 
         if (!devInputBufferOn && GameManager.Instance.IsGameRunning())
         {

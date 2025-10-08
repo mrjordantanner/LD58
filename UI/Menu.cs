@@ -45,8 +45,8 @@ public class Menu : MonoBehaviour, IInitializable
     public GameObject DialogBoxPrefab;
     public GameObject DialogBoxContainer;
 
-    [Header("BGs")]
-    public GameObject FullscreenMenuBackground;
+    //[Header("BGs")]
+    //public GameObject FullscreenMenuBackground;
 
     [HideInInspector] public SettingsSlider[] settingsSliders;
 
@@ -58,7 +58,7 @@ public class Menu : MonoBehaviour, IInitializable
 
     public IEnumerator Init()
     {
-        FullscreenMenuBackground.SetActive(true);
+        //FullscreenMenuBackground.SetActive(true);
 
         versionNumberText.text = $"v{Application.version}";
         companyNameText.text = Application.companyName;
