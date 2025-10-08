@@ -43,6 +43,35 @@ public class PlayerManager : MonoBehaviour, IInitializable
     public float DamageCooldownDuration = 3;
     public float MoveSpeed = 5;
     public int currentLives, startingLives = 3;
+    
+    [Header("Drag Settings")]
+    public bool enableDrag = true;
+    public float dragForce = 10f;
+    public float maxDragForce = 50f;
+    public float dragDamping = 0.8f;
+    public float restThreshold = 0.5f; // Distance from cursor where object stops moving
+    
+    [Header("Weight & Physics")]
+    public float weight = 1f;
+    public float massMultiplier = 1f;
+    public bool usePhysicsWeight = true;
+    public float physicsDrag = 2f;
+    public float angularDrag = 5f;
+    
+    [Header("Deceleration")]
+    public float decelerationForce = 15f;
+    public float decelerationDamping = 0.9f;
+    public bool useDeceleration = true;
+    
+    [Header("Mouse Settings")]
+    public float mouseSensitivity = 1f;
+    public float maxDragDistance = 10f;
+    public LayerMask dragLayerMask = -1;
+    
+    [Header("Visual Feedback")]
+    public bool showDragLine = true;
+    public Color dragLineColor = Color.yellow;
+    public float dragLineWidth = 0.1f;
 
     [Header("Clickable References")]
     public GameObject PlayerPrefab;

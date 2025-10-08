@@ -2,39 +2,15 @@ using UnityEngine;
 
 public class Drag : MonoBehaviour
 {
-    [Header("Drag Settings")]
-    public bool enableDrag = true;
-    public float dragForce = 10f;
-    public float maxDragForce = 50f;
-    public float dragDamping = 0.8f;
-    
-    [Header("Weight & Physics")]
-    public float weight = 1f;
-    public float massMultiplier = 1f;
-    public bool usePhysicsWeight = true;
-    public float physicsDrag = 2f;
-    public float angularDrag = 5f;
-    
-    [Header("Deceleration")]
-    public float decelerationForce = 15f;
-    public float decelerationDamping = 0.9f;
-    public bool useDeceleration = true;
-    
-    [Header("Mouse Settings")]
-    public float mouseSensitivity = 1f;
-    public float maxDragDistance = 10f;
-    public LayerMask dragLayerMask = -1;
-    
-    [Header("Visual Feedback")]
-    public bool showDragLine = true;
-    public Color dragLineColor = Color.yellow;
-    public float dragLineWidth = 0.1f;
+    // Drag parameters are now managed by PlayerManager.Instance
+    // This allows for easy tweaking during play
     
     [Header("State")]
     [ReadOnly] public bool isDragging = false;
     [ReadOnly] public Vector2 dragOffset;
     [ReadOnly] public Vector2 targetPosition;
     [ReadOnly] public float currentDragForce;
+    [ReadOnly] public bool isAtRest = false;
 
     private Rigidbody2D rb;
     private Camera mainCamera;
@@ -65,7 +41,7 @@ public class Drag : MonoBehaviour
         wasKinematic = rb.isKinematic;
         
         // Create drag line if enabled
-        if (showDragLine)
+        if (PlayerManager.Instance.showDragLine)
         {
             CreateDragLine();
         }
@@ -73,14 +49,14 @@ public class Drag : MonoBehaviour
 
     private void Update()
     {
-        if (!enableDrag) return;
+        if (!PlayerManager.Instance.enableDrag) return;
 
         HandleMouseInput();
         UpdateDragPhysics();
         UpdateDragLine();
         
         // Apply continuous deceleration if not dragging and moving
-        if (!isDragging && useDeceleration && rb != null && rb.velocity.magnitude > 0.1f)
+        if (!isDragging && PlayerManager.Instance.useDeceleration && rb != null && rb.velocity.magnitude > 0.1f)
         {
             ApplyContinuousDeceleration();
         }
@@ -117,7 +93,7 @@ public class Drag : MonoBehaviour
         Vector2 mousePos = mouseWorldPosition;
         float distance = Vector2.Distance(mousePos, transform.position);
         
-        if (distance <= maxDragDistance)
+        if (distance <= PlayerManager.Instance.maxDragDistance)
         {
             // Check layer mask
             if (IsInDragLayer())
@@ -125,6 +101,7 @@ public class Drag : MonoBehaviour
                 isDragging = true;
                 dragOffset = (Vector2)transform.position - mousePos;
                 lastMousePosition = mousePos;
+                isAtRest = false; // Reset rest state when starting drag
                 
                 // Apply weight effects
                 ApplyWeightEffects();
@@ -137,6 +114,7 @@ public class Drag : MonoBehaviour
         if (isDragging)
         {
             isDragging = false;
+            isAtRest = false; // Reset rest state when ending drag
             
             // Apply deceleration to bring object to rest
             ApplyDeceleration();
@@ -157,15 +135,29 @@ public class Drag : MonoBehaviour
         Vector2 direction = (targetPosition - (Vector2)transform.position);
         float distance = direction.magnitude;
         
-        if (distance > 0.1f) // Small threshold to prevent jitter
+        // Check if object is within rest threshold
+        if (distance <= PlayerManager.Instance.restThreshold)
         {
+            // Object is at rest - stop all movement
+            isAtRest = true;
+            currentDragForce = 0f;
+            
+            // Stop the rigidbody completely
+            rb.velocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+        }
+        else
+        {
+            // Object is not at rest - apply forces
+            isAtRest = false;
+            
             // Calculate drag force based on distance and weight
-            currentDragForce = Mathf.Min(dragForce * distance * mouseSensitivity, maxDragForce);
+            currentDragForce = Mathf.Min(PlayerManager.Instance.dragForce * distance * PlayerManager.Instance.mouseSensitivity, PlayerManager.Instance.maxDragForce);
             
             // Apply weight multiplier
-            if (usePhysicsWeight)
+            if (PlayerManager.Instance.usePhysicsWeight)
             {
-                currentDragForce *= weight * massMultiplier;
+                currentDragForce *= PlayerManager.Instance.weight * PlayerManager.Instance.massMultiplier;
             }
             
             // Apply force towards target
@@ -173,20 +165,20 @@ public class Drag : MonoBehaviour
             rb.AddForce(force);
             
             // Apply damping to prevent oscillation
-            rb.velocity *= dragDamping;
+            rb.velocity *= PlayerManager.Instance.dragDamping;
         }
     }
 
     private void ApplyWeightEffects()
     {
-        if (!usePhysicsWeight) return;
+        if (!PlayerManager.Instance.usePhysicsWeight) return;
         
         // Increase mass based on weight
-        rb.mass = originalMass * weight * massMultiplier;
+        rb.mass = originalMass * PlayerManager.Instance.weight * PlayerManager.Instance.massMultiplier;
         
         // Apply drag for resistance
-        rb.drag = physicsDrag;
-        rb.angularDrag = angularDrag;
+        rb.drag = PlayerManager.Instance.physicsDrag;
+        rb.angularDrag = PlayerManager.Instance.angularDrag;
         
         // Make sure it's not kinematic for physics to work
         rb.isKinematic = false;
@@ -203,14 +195,14 @@ public class Drag : MonoBehaviour
 
     private void ApplyDeceleration()
     {
-        if (!useDeceleration || rb == null) return;
+        if (!PlayerManager.Instance.useDeceleration || rb == null) return;
         
         // Apply opposing force to current velocity
-        Vector2 opposingForce = -rb.velocity.normalized * decelerationForce;
+        Vector2 opposingForce = -rb.velocity.normalized * PlayerManager.Instance.decelerationForce;
         rb.AddForce(opposingForce);
         
         // Apply additional damping
-        rb.velocity *= decelerationDamping;
+        rb.velocity *= PlayerManager.Instance.decelerationDamping;
         
         // Ensure we don't overshoot and create oscillation
         if (rb.velocity.magnitude < 0.5f)
@@ -221,14 +213,14 @@ public class Drag : MonoBehaviour
 
     private void ApplyContinuousDeceleration()
     {
-        if (!useDeceleration || rb == null) return;
+        if (!PlayerManager.Instance.useDeceleration || rb == null) return;
         
         // Apply gentle opposing force
-        Vector2 opposingForce = -rb.velocity.normalized * (decelerationForce * 0.5f);
+        Vector2 opposingForce = -rb.velocity.normalized * (PlayerManager.Instance.decelerationForce * 0.5f);
         rb.AddForce(opposingForce);
         
         // Apply damping
-        rb.velocity *= decelerationDamping;
+        rb.velocity *= PlayerManager.Instance.decelerationDamping;
         
         // Stop if velocity is very low
         if (rb.velocity.magnitude < 0.1f)
@@ -240,7 +232,7 @@ public class Drag : MonoBehaviour
     private bool IsInDragLayer()
     {
         // Simple layer check - you can expand this for more complex detection
-        return (dragLayerMask.value & (1 << gameObject.layer)) != 0;
+        return (PlayerManager.Instance.dragLayerMask.value & (1 << gameObject.layer)) != 0;
     }
 
     private void CreateDragLine()
@@ -251,9 +243,9 @@ public class Drag : MonoBehaviour
         
         dragLine = lineObj.AddComponent<LineRenderer>();
         dragLine.material = new Material(Shader.Find("Sprites/Default"));
-        //dragLine.color = dragLineColor;
-        dragLine.startWidth = dragLineWidth;
-        dragLine.endWidth = dragLineWidth;
+        //dragLine.color = PlayerManager.Instance.dragLineColor;
+        dragLine.startWidth = PlayerManager.Instance.dragLineWidth;
+        dragLine.endWidth = PlayerManager.Instance.dragLineWidth;
         dragLine.positionCount = 2;
         dragLine.enabled = false;
         dragLine.sortingOrder = 10; // Render on top
@@ -263,15 +255,23 @@ public class Drag : MonoBehaviour
     {
         if (dragLine == null) return;
         
-        if (isDragging && showDragLine)
+        if (isDragging && PlayerManager.Instance.showDragLine)
         {
             dragLine.enabled = true;
             dragLine.SetPosition(0, transform.position);
             dragLine.SetPosition(1, mouseWorldPosition);
             
-            // Update line color based on drag force
-            Color lineColor = dragLineColor;
-            lineColor.a = Mathf.Clamp01(currentDragForce / maxDragForce);
+            // Update line color based on drag force and rest state
+            Color lineColor = PlayerManager.Instance.dragLineColor;
+            if (isAtRest)
+            {
+                lineColor = Color.green; // Green when at rest
+                lineColor.a = 0.5f;
+            }
+            else
+            {
+                lineColor.a = Mathf.Clamp01(currentDragForce / PlayerManager.Instance.maxDragForce);
+            }
             //dragLine.color = lineColor;
         }
         else
@@ -285,7 +285,7 @@ public class Drag : MonoBehaviour
     /// </summary>
     public void ForceStartDrag()
     {
-        if (enableDrag)
+        if (PlayerManager.Instance.enableDrag)
         {
             StartDrag();
         }
@@ -304,7 +304,7 @@ public class Drag : MonoBehaviour
     /// </summary>
     public void SetWeight(float newWeight)
     {
-        weight = Mathf.Max(0.1f, newWeight);
+        PlayerManager.Instance.weight = Mathf.Max(0.1f, newWeight);
         
         // If currently dragging, update physics
         if (isDragging)
@@ -318,7 +318,7 @@ public class Drag : MonoBehaviour
     /// </summary>
     public void SetDragEnabled(bool enabled)
     {
-        enableDrag = enabled;
+        PlayerManager.Instance.enableDrag = enabled;
         
         // If disabling while dragging, stop the drag
         if (!enabled && isDragging)
@@ -329,16 +329,16 @@ public class Drag : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        if (!enableDrag) return;
+        if (!PlayerManager.Instance.enableDrag) return;
         
         // Draw drag range
         Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, maxDragDistance);
+        Gizmos.DrawWireSphere(transform.position, PlayerManager.Instance.maxDragDistance);
         
         // Draw drag line if dragging
         if (isDragging && Application.isPlaying)
         {
-            Gizmos.color = dragLineColor;
+            Gizmos.color = PlayerManager.Instance.dragLineColor;
             Gizmos.DrawLine(transform.position, targetPosition);
         }
     }
