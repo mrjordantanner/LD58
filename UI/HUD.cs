@@ -43,7 +43,7 @@ public class HUD : MenuPanel, IInitializable
     public CanvasGroup HUDButtonsGroup;
     public CanvasGroup worldUI;
     public ScreenFader screenFader;
-    public GameObject screenFlash;
+    //public GameObject screenFlash;
     CanvasGroup screenFlashCanvas;
 
     [Header("Message Text")]
@@ -56,7 +56,7 @@ public class HUD : MenuPanel, IInitializable
     public IEnumerator Init()
     {
         Hide();
-        screenFlashCanvas = screenFlash.GetComponent<CanvasGroup>();
+        //screenFlashCanvas = screenFlash.GetComponent<CanvasGroup>();
         scoreLabel.text = "0";
 
         // Hide default cursor

@@ -346,7 +346,11 @@ public class GameManager : MonoBehaviour, IInitializable
 
     public void Pause()
     {
-        if (currentState != GameState.Running) return;
+        if (currentState != GameState.Running)
+        {
+            Debug.Log("Tried to Pause but GameState was not set to Running.  Returning early.");
+            return;
+        }
 
         SetGameState(GameState.Paused);
         
@@ -354,13 +358,16 @@ public class GameManager : MonoBehaviour, IInitializable
         inputSuspended = true;
         Time.timeScale = 0;
         Physics2D.simulationMode = SimulationMode2D.Script;
-        HUD.Instance.screenFlash.SetActive(false);
         
     }
 
     public void Unpause()
     {
-        if (currentState != GameState.Paused) return;
+        if (currentState != GameState.Paused)
+        {
+            Debug.Log("Tried to unpause but GameState was not set to Paused.  Returning early.");
+            return;
+        }
 
         SetGameState(GameState.Running);
         
@@ -368,7 +375,6 @@ public class GameManager : MonoBehaviour, IInitializable
         inputSuspended = false;
         Time.timeScale = 1;
         Physics2D.simulationMode = SimulationMode2D.FixedUpdate;
-        HUD.Instance.screenFlash.SetActive(true);
         
     }
 
