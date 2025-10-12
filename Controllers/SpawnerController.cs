@@ -31,8 +31,15 @@ public class SpawnerController : MonoBehaviour, IInitializable
     public float anticipationMinDuration = 0.5f;
     public float anticipationMaxDuration = 1.5f;
     public float ballSpawnVFXLifespan = 1f;
+    public float delayBetweenBalls = 0.5f; // Delay between spawning multiple balls
     public bool isRoundActive = false;
     public float roundTimer = 0f;
+    
+    [Header("Multi-Ball Settings")]
+    public int levelForTwoBalls = 5; // Level where 2 balls start spawning
+    public int levelForThreeBalls = 8; // Level where 3 balls start spawning
+    [ReadOnly] public int ballsToSpawnThisRound = 1;
+    [ReadOnly] public int ballsSpawnedThisRound = 0;
 
     
     [Header("Ball Physics Settings")]
@@ -229,6 +236,45 @@ public class SpawnerController : MonoBehaviour, IInitializable
         Debug.Log("SpawnerController: Reset spawn system");
     }
     
+    /// <summary>
+    /// Calculate how many balls should spawn based on the current level number
+    /// </summary>
+    public int CalculateBallsForLevel(int levelNumber)
+    {
+        int ballCount;
+        if (levelNumber >= levelForThreeBalls)
+            ballCount = 3;
+        else if (levelNumber >= levelForTwoBalls)
+            ballCount = 2;
+        else
+            ballCount = 1;
+        
+        Debug.Log($"SpawnerController: CalculateBallsForLevel({levelNumber}) - levelForTwoBalls={levelForTwoBalls}, levelForThreeBalls={levelForThreeBalls}, returning {ballCount} ball(s)");
+        return ballCount;
+    }
+    
+    /// <summary>
+    /// Test method to force spawn multiple balls (for debugging)
+    /// </summary>
+    public void TestMultipleBalls(int count)
+    {
+        Debug.Log($"SpawnerController: TEST MODE - Forcing {count} balls to spawn");
+        
+        // Set up round state manually
+        isRoundActive = true;
+        roundTimer = 0f;
+        ballsSpawnedThisRound = 0;
+        ballsToSpawnThisRound = count;
+        
+        // Apply difficulty settings
+        if (DifficultyManager.Instance != null)
+        {
+            DifficultyManager.Instance.ApplyDifficultyToSpawnerController();
+        }
+        
+        // Start the round flow directly
+        StartCoroutine(RoundFlow());
+    }
 
     /// <summary>
     /// Starts a new round with anticipation and VFX
@@ -265,13 +311,29 @@ public class SpawnerController : MonoBehaviour, IInitializable
             Debug.LogWarning("SpawnerController: No DifficultyManager found!");
         }
         
-        // Reset round state
+        // Reset round state and calculate balls for this round
         Debug.Log("SpawnerController: Setting round state - isRoundActive = true, roundTimer = 0");
         isRoundActive = true;
         roundTimer = 0f;
+        ballsSpawnedThisRound = 0;
+        
+        // Calculate how many balls to spawn based on current level
+        if (Progression.Instance != null)
+        {
+            int currentLevel = Progression.Instance.currentLevel;
+            int currentRound = Progression.Instance.currentRound;
+            Debug.Log($"SpawnerController: Current level {currentLevel}, round {currentRound}");
+            ballsToSpawnThisRound = CalculateBallsForLevel(currentLevel);
+            Debug.Log($"SpawnerController: Level {currentLevel} - ballsToSpawnThisRound set to {ballsToSpawnThisRound}");
+        }
+        else
+        {
+            ballsToSpawnThisRound = 1; // Default to 1 if no progression
+            Debug.LogWarning("SpawnerController: No Progression instance found, defaulting to 1 ball");
+        }
         
         // Start the round flow
-        Debug.Log("SpawnerController: Starting RoundFlow coroutine...");
+        Debug.Log($"SpawnerController: About to start RoundFlow coroutine with ballsToSpawnThisRound = {ballsToSpawnThisRound}");
         StartCoroutine(RoundFlow());
         Debug.Log("SpawnerController: RoundFlow coroutine started successfully");
     }
@@ -306,62 +368,69 @@ public class SpawnerController : MonoBehaviour, IInitializable
 
 
     /// <summary>
-    /// Coroutine that handles the round flow: anticipation -> VFX -> ball spawn
+    /// Coroutine that handles the round flow: anticipation -> VFX -> ball spawn (supports multiple balls spawning simultaneously)
     /// </summary>
     private System.Collections.IEnumerator RoundFlow()
     {
-        Debug.Log("SpawnerController: RoundFlow() coroutine started");
+        Debug.Log($"SpawnerController: RoundFlow() coroutine started - spawning {ballsToSpawnThisRound} ball(s)");
         
-
-            // Step 1: Choose spawn point
-            Debug.Log("SpawnerController: Getting random spawn position...");
-            Vector2 spawnPosition = GetRandomSpawnPosition();
-            Debug.Log($"SpawnerController: Round starting - ball will spawn at {spawnPosition}");
-
-            // Step 2: Anticipation pause
-            float anticipationDuration = Random.Range(anticipationMinDuration, anticipationMaxDuration);
-            Debug.Log($"SpawnerController: Anticipation pause for {anticipationDuration:F1} seconds");
-            yield return new WaitForSeconds(anticipationDuration);
-
-            // Step 3: Spawn VFX
-            if (BallSpawnVFXObject != null)
+        // Step 1: Anticipation pause
+        float anticipationDuration = Random.Range(anticipationMinDuration, anticipationMaxDuration);
+        Debug.Log($"SpawnerController: Anticipation pause for {anticipationDuration:F1} seconds");
+        yield return new WaitForSeconds(anticipationDuration);
+        
+        // Step 2: Generate spawn positions for all balls
+        Vector2[] spawnPositions = new Vector2[ballsToSpawnThisRound];
+        for (int i = 0; i < ballsToSpawnThisRound; i++)
+        {
+            spawnPositions[i] = GetRandomSpawnPosition();
+            Debug.Log($"SpawnerController: Ball {i + 1} will spawn at {spawnPositions[i]}");
+        }
+        
+        // Step 3: Spawn VFX for all balls simultaneously
+        if (BallSpawnVFXObject != null)
+        {
+            for (int i = 0; i < ballsToSpawnThisRound; i++)
             {
-                GameObject vfx = Instantiate(BallSpawnVFXObject, spawnPosition, Quaternion.identity);
-                vfx.name = $"BallSpawnVFX_{Time.time:F1}";
-                
-                // Destroy VFX after lifespan
+                GameObject vfx = Instantiate(BallSpawnVFXObject, spawnPositions[i], Quaternion.identity);
+                vfx.name = $"BallSpawnVFX_{i}_{Time.time:F1}";
                 Destroy(vfx, ballSpawnVFXLifespan);
-                
-                Debug.Log($"SpawnerController: Spawned VFX at {spawnPosition}, will destroy in {ballSpawnVFXLifespan} seconds");
+                Debug.Log($"SpawnerController: Spawned VFX {i + 1} at {spawnPositions[i]}");
             }
-            else
-            {
-                Debug.LogWarning("SpawnerController: BallSpawnVFXObject is not assigned!");
-            }
-
-            // Step 4: Wait for VFX duration, then spawn ball
-            yield return new WaitForSeconds(ballSpawnVFXLifespan);
-
-            // Step 5: Spawn and launch the ball
-            GameObject ball = Instantiate(ballPrefab, spawnPosition, Quaternion.identity);
+        }
+        else
+        {
+            Debug.LogWarning("SpawnerController: BallSpawnVFXObject is not assigned!");
+        }
+        
+        // Step 4: Wait for VFX duration
+        yield return new WaitForSeconds(ballSpawnVFXLifespan);
+        
+        // Step 5: Spawn all balls simultaneously
+        for (int i = 0; i < ballsToSpawnThisRound; i++)
+        {
+            GameObject ball = Instantiate(ballPrefab, spawnPositions[i], Quaternion.identity);
             ball.name = $"Ball_{totalBallsSpawned}";
             totalBallsSpawned++;
-
-            // Start round timer right when ball is instantiated
-            if (Scoring.Instance != null)
-            {
-                Scoring.Instance.StartRound();
-                Debug.Log("SpawnerController: Started round timer when ball was instantiated");
-            }
-
+            ballsSpawnedThisRound++;
+            
             // Configure the ball with random physics properties
             ConfigureBall(ball);
             
             // Apply current theme accent color to the ball
             ApplyThemeToBall(ball);
-
-            Debug.Log($"SpawnerController: Ball spawned and launched at {spawnPosition}");
-       
+            
+            Debug.Log($"SpawnerController: Ball {i + 1} spawned and launched at {spawnPositions[i]}");
+        }
+        
+        // Start round timer after all balls are spawned
+        if (Scoring.Instance != null)
+        {
+            Scoring.Instance.StartRound();
+            Debug.Log("SpawnerController: Started round timer after all balls were spawned");
+        }
+        
+        Debug.Log($"SpawnerController: All {ballsToSpawnThisRound} ball(s) spawned successfully");
     }
 
     private void OnDrawGizmos()

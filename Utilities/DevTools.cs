@@ -91,6 +91,7 @@ public class DevTools : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Keypad7))
         {
+            TestMultipleBalls();
             StartDevInputBuffer();
         }
 
@@ -237,10 +238,36 @@ public class DevTools : MonoBehaviour
             return;
         }
         
-        // Use Progression's existing functionality to start the level
+        // Match the normal level transition flow from LevelCompletionSequence:
+        // 1) Player is already despawned by EndCurrentRoundAndLevel()
+        // 2) Spawn player
+        if (PlayerManager.Instance != null)
+        {
+            PlayerManager.Instance.SpawnPlayer();
+        }
+        
+        // 3) InitializeLevel (which automatically starts round 1)
         Progression.Instance.InitializeLevel(levelNumber);
         
         Debug.Log($"DevTools: Level {levelNumber} started successfully");
+    }
+    
+    /// <summary>
+    /// Test method to spawn multiple balls (Keypad 7)
+    /// </summary>
+    public void TestMultipleBalls()
+    {
+        Debug.Log("DevTools: Testing multiple balls (3 balls)...");
+        
+        if (SpawnerController.Instance == null)
+        {
+            Debug.LogWarning("DevTools: SpawnerController.Instance is null!");
+            return;
+        }
+        
+        // Force spawn 3 balls for testing
+        SpawnerController.Instance.TestMultipleBalls(3);
+        Debug.Log("DevTools: 3 balls spawning test initiated");
     }
     #endregion
 

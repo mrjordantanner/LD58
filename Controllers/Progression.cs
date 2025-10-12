@@ -48,6 +48,10 @@ public class Progression : MonoBehaviour, IInitializable
     [ReadOnly] public bool isRoundActive = false;
     [ReadOnly] public Level currentLevelData;
     [ReadOnly] public Round currentRoundData;
+    
+    [Header("Multi-Ball Tracking")]
+    [ReadOnly] public int ballsRequiredThisRound = 1;
+    [ReadOnly] public int ballsCapturedThisRound = 0;
 
     [Header("Testing")]
     public bool disableProgression = false;
@@ -297,6 +301,19 @@ public class Progression : MonoBehaviour, IInitializable
         currentRoundData = new Round(roundNumber, currentLevel, currentLevelData.difficulty);
         isRoundActive = true;
         
+        // Initialize ball tracking for this round (based on current level)
+        ballsCapturedThisRound = 0;
+        if (SpawnerController.Instance != null)
+        {
+            ballsRequiredThisRound = SpawnerController.Instance.CalculateBallsForLevel(currentLevel);
+            Debug.Log($"Progression: Level {currentLevel} Round {roundNumber} requires {ballsRequiredThisRound} ball(s) to be captured");
+        }
+        else
+        {
+            ballsRequiredThisRound = 1; // Default to 1 if no spawner
+            Debug.LogWarning("Progression: No SpawnerController found, defaulting to 1 ball required");
+        }
+        
         // Start round tracking in scoring system
         if (Scoring.Instance != null)
         {
@@ -306,11 +323,15 @@ public class Progression : MonoBehaviour, IInitializable
         
         Debug.Log($"Progression: Round state set. isRoundActive: {isRoundActive}");
         
-        // Spawn player at the beginning of each new round
-        Debug.Log($"Progression: Starting round {roundNumber} - spawning player...");
-        if (PlayerManager.Instance != null)
+        // Only spawn player if they're not already spawned (happens at first round of level)
+        if (PlayerManager.Instance != null && PlayerManager.Instance.player == null)
         {
+            Debug.Log($"Progression: Starting round {roundNumber} - spawning player...");
             PlayerManager.Instance.SpawnPlayer();
+        }
+        else
+        {
+            Debug.Log($"Progression: Starting round {roundNumber} - player already spawned, continuing...");
         }
         
         // Start the SpawnerController round flow (anticipation -> VFX -> ball spawn)
@@ -329,7 +350,33 @@ public class Progression : MonoBehaviour, IInitializable
     }
 
     /// <summary>
-    /// Complete the current round
+    /// Called when a ball is captured - tracks progress towards round completion
+    /// </summary>
+    public void OnBallCaptured()
+    {
+        if (!isRoundActive)
+        {
+            Debug.LogWarning("Progression: Ball captured but no round is active!");
+            return;
+        }
+        
+        ballsCapturedThisRound++;
+        Debug.Log($"Progression: Ball captured! Progress: {ballsCapturedThisRound}/{ballsRequiredThisRound}");
+        
+        // Check if all balls have been captured
+        if (ballsCapturedThisRound >= ballsRequiredThisRound)
+        {
+            Debug.Log($"Progression: All {ballsRequiredThisRound} ball(s) captured! Completing round...");
+            CompleteRound();
+        }
+        else
+        {
+            Debug.Log($"Progression: Round continues - {ballsRequiredThisRound - ballsCapturedThisRound} ball(s) remaining");
+        }
+    }
+
+    /// <summary>
+    /// Complete the current round (now only called when all balls are captured)
     /// </summary>
     public void CompleteRound()
     {
@@ -404,45 +451,30 @@ public class Progression : MonoBehaviour, IInitializable
         Debug.Log("Progression: Waiting 1 second...");
         yield return new WaitForSeconds(1f);
         
-        // 4) Despawn the player
-        Debug.Log("Progression: Despawning player...");
-        if (PlayerManager.Instance != null)
-        {
-            PlayerManager.Instance.DespawnPlayer();
-        }
-        
-        // 5) Wait 1 second
-        Debug.Log("Progression: Waiting 1 second...");
-        yield return new WaitForSeconds(1f);
-        
-        // 6) Show new level-round text (this happens automatically via events)
-        Debug.Log("Progression: Showing progression...");
-        
-        // 7) Wait 0.5 seconds
-        Debug.Log("Progression: Waiting 0.5 seconds...");
-        yield return new WaitForSeconds(0.5f);
-        
-        // 8) Spawn the player (only if not completing the level)
+        // 4) Check if this was the last round in the level
         if (roundsCompletedInCurrentLevel < roundsPerLevel)
         {
-            Debug.Log("Progression: Respawning player for next round...");
-            if (PlayerManager.Instance != null)
-            {
-                PlayerManager.Instance.SpawnPlayer();
-            }
+            // Still rounds left in this level - continue without despawning player
+            Debug.Log("Progression: More rounds in this level - keeping player spawned");
             
-            // 9) Wait 0.5 seconds
+            // 5) Show new round text (this happens automatically via events)
+            Debug.Log("Progression: Showing progression...");
+            
+            // 6) Wait 0.5 seconds
             Debug.Log("Progression: Waiting 0.5 seconds...");
             yield return new WaitForSeconds(0.5f);
             
-            // 10) Start next round
+            // 7) Start next round (player stays spawned)
             Debug.Log("Progression: Starting next round...");
             StartRound(currentRound + 1);
         }
         else
         {
-            Debug.Log("Progression: Level completed - player will be spawned when new level starts");
-            // 10) Complete the level (player will be spawned in LevelCompletionSequence)
+            // Last round of the level - complete the level (despawn/respawn handled in LevelCompletionSequence)
+            Debug.Log("Progression: Last round of level - completing level");
+            
+            // 5) Complete the level (player will be despawned/respawned in LevelCompletionSequence)
+            Debug.Log("Progression: Player will be despawned and respawned in LevelCompletionSequence");
             CompleteLevel();
         }
         

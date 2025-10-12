@@ -238,22 +238,19 @@ public class PlayerManager : MonoBehaviour, IInitializable
 
             // TODO play VFX
 
-            // Complete the current round
+            // Track ball capture (Progression will complete round when all balls are captured)
             if (Progression.Instance != null)
             {
                 Debug.Log($"PlayerManager: Progression instance found. IsInRound: {Progression.Instance.IsInRound()}");
                 if (Progression.Instance.IsInRound())
                 {
                     // TODO add points to score based on round timer?
-                    Progression.Instance.CompleteRound();
-                    Debug.Log("PlayerManager: Round completed!");
-                    
-                    // Test alert for round success
-                    HUD.Instance.ShowAlertMessage("Round Complete", 0.3f, 2f, 0.5f);
+                    Progression.Instance.OnBallCaptured();
+                    Debug.Log("PlayerManager: Ball capture tracked!");
                 }
                 else
                 {
-                    Debug.Log("PlayerManager: Not in a round, cannot complete");
+                    Debug.Log("PlayerManager: Not in a round, cannot track capture");
                 }
             }
             else
