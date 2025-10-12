@@ -27,7 +27,7 @@ public class LeaderboardService : MonoBehaviour, IInitializable
     #endregion
 
     public string Name {  get { return "Leaderboards"; } }
-    const string LEADERBOARD_ID = "Post-Compo";
+    const string LEADERBOARD_ID = "Compo";
 
     public LeaderboardScoresPage Scores;
     public LeaderboardEntry PlayerScore;

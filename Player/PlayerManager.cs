@@ -68,10 +68,32 @@ public class PlayerManager : MonoBehaviour, IInitializable
     public float maxDragDistance = 10f;
     public LayerMask dragLayerMask = -1;
     
-    [Header("Visual Feedback")]
-    public bool showDragLine = true;
-    public Color dragLineColor = Color.yellow;
-    public float dragLineWidth = 0.1f;
+    [Header("Physics Drag")]
+    public float physicsFollowStrength = 15f;
+    public float physicsMaxFollowForce = 25f;
+    public float physicsFollowDamping = 0.85f;
+    public float physicsWeightResistance = 0.3f; // Slight weight for challenge
+    public float physicsKinematicTransitionTime = 0.1f;
+
+    [Header("Collector Motion")]
+    public float collectorExpandDistance = 1.0f; // How far each quadrant moves outward
+    public float collectorExpandDuration = 0.2f;
+    public float collectorStayOpenDuration = 0.3f;
+    public float collectorContractDuration = 0.2f;
+    public float collectorPreCollectionWindow = 0.1f;
+    public float collectorPostCollectionWindow = 0.15f;
+    public float collectorOverlapThreshold = 0.7f; // How much of the collectible must be inside (0.7 = 70%)
+    public bool collectorUseOverlapDetection = true;
+    public bool collectorUsePreciseDetection = false; // Use sampling method instead of bounds calculation
+    public int collectorSamplePoints = 20; // Number of points to sample for precise detection
+    public bool collectorUseRotation = true;
+    public float collectorExpandRotationSpeed = 180f;
+    public float collectorContractRotationSpeed = 720f;
+    public bool collectorUseColorChange = true;
+    public bool collectorUseShakeOnClose = true;
+    public float collectorShakeIntensity = 0.1f;
+    public float collectorShakeDuration = 0.15f;
+    public int collectorShakeVibrato = 10;
 
     [Header("Clickable References")]
     public GameObject PlayerPrefab;

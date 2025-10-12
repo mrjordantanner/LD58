@@ -4,38 +4,8 @@ using DG.Tweening;
 
 public class Collector : MonoBehaviour
 {
-    [Header("Expansion Settings")]
-    public float expandDistance = 1.0f; // How far each quadrant moves outward
-    public float expandDuration = 0.2f;
-    public float stayOpenDuration = 0.3f;
-    public float contractDuration = 0.2f;
-    
-    [Header("Collection Window")]
-    public float preCollectionWindow = 0.1f;
-    public float postCollectionWindow = 0.15f;
-    
-    [Header("Overlap Detection")]
-    [Range(0.1f, 1.0f)]
-    public float overlapThreshold = 0.7f; // How much of the collectible must be inside (0.7 = 70%)
-    public bool useOverlapDetection = true;
-    public bool usePreciseDetection = false; // Use sampling method instead of bounds calculation
-    [Range(10, 50)]
-    public int samplePoints = 20; // Number of points to sample for precise detection
-    
-    [Header("Visual Effects")]
-    public bool useRotation = true;
-    public float expandRotationSpeed = 180f;
-    public float contractRotationSpeed = 720f;
-    public bool useColorChange = true;
-    public Color expandColor = Color.clear;
-    public Color contractColor = Color.clear;
-    public Color originalColor = Color.clear;
-    
-    [Header("Shake Effects")]
-    public bool useShakeOnClose = true;
-    public float shakeIntensity = 0.1f;
-    public float shakeDuration = 0.15f;
-    public int shakeVibrato = 10;
+    // Collector motion parameters are now managed by PlayerManager.Instance
+    // This allows for easy tweaking during play
     
     [Header("Quadrant References")]
     public Transform topLeftQuadrant;
@@ -69,6 +39,8 @@ public class Collector : MonoBehaviour
 
     // Cached Drag component reference
     private Drag playerDragComponent;
+    // Cached PhysicsDrag component reference
+    private PhysicsDrag playerPhysicsDragComponent;
 
     /// <summary>
     /// Checks if there's a ball in play (exists and is moving)
@@ -122,11 +94,13 @@ public class Collector : MonoBehaviour
         // Set initial color
         if (graphicsSpriteRenderer != null)
         {
-            graphicsSpriteRenderer.color = GetActualColor(originalColor, "primaryLight");
+            graphicsSpriteRenderer.color = GetThemeColor("primaryLight");
         }
 
         // Cache the Drag component reference from parent
         playerDragComponent = GetComponentInParent<Drag>();
+        // Cache the PhysicsDrag component reference from parent
+        playerPhysicsDragComponent = GetComponentInParent<PhysicsDrag>();
     }
 
     private void Update()
@@ -138,7 +112,8 @@ public class Collector : MonoBehaviour
                         Input.GetKey(InputManager.Instance.shootKey);
 
         // Check if player is currently dragging (only allow collector to open when dragging)
-        bool isPlayerDragging = playerDragComponent != null && playerDragComponent.isDragging;
+        bool isPlayerDragging = (playerDragComponent != null && playerDragComponent.isDragging) || 
+                               (playerPhysicsDragComponent != null && playerPhysicsDragComponent.isDragging);
 
         // On button press - start opening if not already open/opening AND player is dragging
         if (isPressed && !isHolding && !isExpanding && !isExpanded && isPlayerDragging)
@@ -189,23 +164,23 @@ public class Collector : MonoBehaviour
         expansionTween = DOTween.Sequence()
             // Move quadrants diagonally outward
             .Join(topLeftQuadrant != null ? 
-                topLeftQuadrant.DOLocalMove(topLeftOriginalPos + new Vector3(-expandDistance, expandDistance, 0), expandDuration)
+                topLeftQuadrant.DOLocalMove(topLeftOriginalPos + new Vector3(-PlayerManager.Instance.collectorExpandDistance, PlayerManager.Instance.collectorExpandDistance, 0), PlayerManager.Instance.collectorExpandDuration)
                 .SetEase(Ease.OutQuad) : null)
             .Join(topRightQuadrant != null ? 
-                topRightQuadrant.DOLocalMove(topRightOriginalPos + new Vector3(expandDistance, expandDistance, 0), expandDuration)
+                topRightQuadrant.DOLocalMove(topRightOriginalPos + new Vector3(PlayerManager.Instance.collectorExpandDistance, PlayerManager.Instance.collectorExpandDistance, 0), PlayerManager.Instance.collectorExpandDuration)
                 .SetEase(Ease.OutQuad) : null)
             .Join(bottomLeftQuadrant != null ? 
-                bottomLeftQuadrant.DOLocalMove(bottomLeftOriginalPos + new Vector3(-expandDistance, -expandDistance, 0), expandDuration)
+                bottomLeftQuadrant.DOLocalMove(bottomLeftOriginalPos + new Vector3(-PlayerManager.Instance.collectorExpandDistance, -PlayerManager.Instance.collectorExpandDistance, 0), PlayerManager.Instance.collectorExpandDuration)
                 .SetEase(Ease.OutQuad) : null)
             .Join(bottomRightQuadrant != null ? 
-                bottomRightQuadrant.DOLocalMove(bottomRightOriginalPos + new Vector3(expandDistance, -expandDistance, 0), expandDuration)
+                bottomRightQuadrant.DOLocalMove(bottomRightOriginalPos + new Vector3(PlayerManager.Instance.collectorExpandDistance, -PlayerManager.Instance.collectorExpandDistance, 0), PlayerManager.Instance.collectorExpandDuration)
                 .SetEase(Ease.OutQuad) : null)
             // Add rotation and color effects during expansion
-            .Join(useRotation && GraphicsObject != null ? 
-                GraphicsObject.transform.DORotate(new Vector3(0, 0, expandRotationSpeed), expandDuration, RotateMode.FastBeyond360)
+            .Join(PlayerManager.Instance.collectorUseRotation && GraphicsObject != null ? 
+                GraphicsObject.transform.DORotate(new Vector3(0, 0, PlayerManager.Instance.collectorExpandRotationSpeed), PlayerManager.Instance.collectorExpandDuration, RotateMode.FastBeyond360)
                 .SetEase(Ease.OutQuad) : null)
-            .Join(useColorChange && graphicsSpriteRenderer != null ? 
-                graphicsSpriteRenderer.DOColor(GetActualColor(expandColor, "primaryLightTint"), expandDuration)
+            .Join(PlayerManager.Instance.collectorUseColorChange && graphicsSpriteRenderer != null ? 
+                graphicsSpriteRenderer.DOColor(GetThemeColor("primaryLightTint"), PlayerManager.Instance.collectorExpandDuration)
                 .SetEase(Ease.OutQuad) : null)
             // Set expanded state and stay open
             .AppendCallback(() => {
@@ -241,23 +216,23 @@ public class Collector : MonoBehaviour
         expansionTween = DOTween.Sequence()
             // Move quadrants back to original positions
             .Join(topLeftQuadrant != null ? 
-                topLeftQuadrant.DOLocalMove(topLeftOriginalPos, contractDuration)
+                topLeftQuadrant.DOLocalMove(topLeftOriginalPos, PlayerManager.Instance.collectorContractDuration)
                 .SetEase(Ease.InQuad) : null)
             .Join(topRightQuadrant != null ? 
-                topRightQuadrant.DOLocalMove(topRightOriginalPos, contractDuration)
+                topRightQuadrant.DOLocalMove(topRightOriginalPos, PlayerManager.Instance.collectorContractDuration)
                 .SetEase(Ease.InQuad) : null)
             .Join(bottomLeftQuadrant != null ? 
-                bottomLeftQuadrant.DOLocalMove(bottomLeftOriginalPos, contractDuration)
+                bottomLeftQuadrant.DOLocalMove(bottomLeftOriginalPos, PlayerManager.Instance.collectorContractDuration)
                 .SetEase(Ease.InQuad) : null)
             .Join(bottomRightQuadrant != null ? 
-                bottomRightQuadrant.DOLocalMove(bottomRightOriginalPos, contractDuration)
+                bottomRightQuadrant.DOLocalMove(bottomRightOriginalPos, PlayerManager.Instance.collectorContractDuration)
                 .SetEase(Ease.InQuad) : null)
             // Add fast rotation with elastic easing for extra elasticity and snappiness
-            .Join(useRotation && GraphicsObject != null ? 
-                GraphicsObject.transform.DORotate(new Vector3(0, 0, contractRotationSpeed), contractDuration, RotateMode.FastBeyond360)
+            .Join(PlayerManager.Instance.collectorUseRotation && GraphicsObject != null ? 
+                GraphicsObject.transform.DORotate(new Vector3(0, 0, PlayerManager.Instance.collectorContractRotationSpeed), PlayerManager.Instance.collectorContractDuration, RotateMode.FastBeyond360)
                 .SetEase(Ease.OutElastic) : null)
-            .Join(useColorChange && graphicsSpriteRenderer != null ? 
-                graphicsSpriteRenderer.DOColor(GetActualColor(contractColor, "accent"), contractDuration)
+            .Join(PlayerManager.Instance.collectorUseColorChange && graphicsSpriteRenderer != null ? 
+                graphicsSpriteRenderer.DOColor(GetThemeColor("accent"), PlayerManager.Instance.collectorContractDuration)
                 .SetEase(Ease.InQuad) : null)
             // Clean up and reset visual effects
             .AppendCallback(() => {
@@ -305,7 +280,7 @@ public class Collector : MonoBehaviour
                 Scoring.Instance.AwardReflexBonus();
                     
                 // Award accuracy bonus for precise capture
-                float overlapPercentage = usePreciseDetection ? 
+                float overlapPercentage = PlayerManager.Instance.collectorUsePreciseDetection ? 
                     CalculateOverlapRatioPrecise(collision) : 
                     CalculateOverlapRatio(collision);
                     
@@ -364,7 +339,7 @@ public class Collector : MonoBehaviour
         }
 
         // Flash duration should be quick and snappy to match contraction
-        float flashDuration = contractDuration * 0.3f; // 30% of contraction duration
+        float flashDuration = PlayerManager.Instance.collectorContractDuration * 0.3f; // 30% of contraction duration
 
         // Flash all 4 player graphics renderers to accent color
         if (playerCharacter.graphicTopLeft != null)
@@ -410,7 +385,7 @@ public class Collector : MonoBehaviour
     /// </summary>
     private void ShakeGraphicsObject()
     {
-        if (!useShakeOnClose || GraphicsObject == null)
+        if (!PlayerManager.Instance.collectorUseShakeOnClose || GraphicsObject == null)
             return;
 
         // Kill any existing shake tween
@@ -424,9 +399,9 @@ public class Collector : MonoBehaviour
 
         // Create shake tween
         shakeTween = GraphicsObject.transform.DOShakePosition(
-            shakeDuration,
-            shakeIntensity,
-            shakeVibrato,
+            PlayerManager.Instance.collectorShakeDuration,
+            PlayerManager.Instance.collectorShakeIntensity,
+            PlayerManager.Instance.collectorShakeVibrato,
             fadeOut: true
         ).OnComplete(() => {
             // Ensure we return to exact original position
@@ -441,16 +416,16 @@ public class Collector : MonoBehaviour
     /// </summary>
     private bool ShouldCollectItem(Collider2D collectibleCollider)
     {
-        if (!useOverlapDetection)
+        if (!PlayerManager.Instance.collectorUseOverlapDetection)
         {
             return true; // If overlap detection is disabled, collect everything
         }
 
-        float overlapRatio = usePreciseDetection ? 
+        float overlapRatio = PlayerManager.Instance.collectorUsePreciseDetection ? 
             CalculateOverlapRatioPrecise(collectibleCollider) : 
             CalculateOverlapRatio(collectibleCollider);
             
-        bool shouldCollect = overlapRatio >= overlapThreshold;
+        bool shouldCollect = overlapRatio >= PlayerManager.Instance.collectorOverlapThreshold;
         
         //Debug.Log($"Collector: Overlap ratio for {collectibleCollider.name}: {overlapRatio:F2} (threshold: {overlapThreshold:F2})");
         
@@ -513,7 +488,7 @@ public class Collector : MonoBehaviour
         // Sample points within the collectible bounds
         int pointsInside = 0;
         
-        for (int i = 0; i < samplePoints; i++)
+        for (int i = 0; i < PlayerManager.Instance.collectorSamplePoints; i++)
         {
             // Generate random point within collectible bounds
             Vector2 samplePoint = new Vector2(
@@ -528,7 +503,7 @@ public class Collector : MonoBehaviour
             }
         }
         
-        return (float)pointsInside / samplePoints;
+        return (float)pointsInside / PlayerManager.Instance.collectorSamplePoints;
     }
 
     /// <summary>
@@ -536,7 +511,7 @@ public class Collector : MonoBehaviour
     /// </summary>
     private void OnDrawGizmosSelected()
     {
-        if (!useOverlapDetection || coll == null)
+        if (!PlayerManager.Instance.collectorUseOverlapDetection || coll == null)
             return;
 
         // Draw collector bounds in green
@@ -545,7 +520,7 @@ public class Collector : MonoBehaviour
 
         // Draw threshold indicator
         Gizmos.color = Color.yellow;
-        Vector3 thresholdSize = coll.bounds.size * overlapThreshold;
+        Vector3 thresholdSize = coll.bounds.size * PlayerManager.Instance.collectorOverlapThreshold;
         Gizmos.DrawWireCube(coll.bounds.center, thresholdSize);
     }
 
@@ -571,7 +546,7 @@ public class Collector : MonoBehaviour
     private IEnumerator CollectionWindowSequence()
     {
         // Pre-collection window (before contraction)
-        yield return new WaitForSeconds(preCollectionWindow);
+        yield return new WaitForSeconds(PlayerManager.Instance.collectorPreCollectionWindow);
         
         // Enable collider during contraction
         if (coll != null)
@@ -580,10 +555,10 @@ public class Collector : MonoBehaviour
         }
         
         // Wait for contraction duration
-        yield return new WaitForSeconds(contractDuration);
+        yield return new WaitForSeconds(PlayerManager.Instance.collectorContractDuration);
         
         // Post-collection window (after contraction)
-        yield return new WaitForSeconds(postCollectionWindow);
+        yield return new WaitForSeconds(PlayerManager.Instance.collectorPostCollectionWindow);
         
         // Disable collider
         if (coll != null)
@@ -609,12 +584,8 @@ public class Collector : MonoBehaviour
     /// <summary>
     /// Gets the actual color to use, falling back to theme if color is clear
     /// </summary>
-    private Color GetActualColor(Color fallbackColor, string themeColorName)
+    private Color GetThemeColor(string themeColorName)
     {
-        if (fallbackColor.a > 0f) // If alpha > 0, use the fallback color
-            return fallbackColor;
-        
-        // Otherwise use theme color
         return ThemeController.Instance.GetColor(themeColorName);
     }
 
@@ -630,7 +601,7 @@ public class Collector : MonoBehaviour
         
         if (graphicsSpriteRenderer != null)
         {
-            graphicsSpriteRenderer.color = GetActualColor(originalColor, "primaryLight");
+            graphicsSpriteRenderer.color = GetThemeColor("primaryLight");
         }
 
         // Reset quadrant positions

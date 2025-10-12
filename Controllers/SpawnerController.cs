@@ -212,8 +212,10 @@ public class SpawnerController : MonoBehaviour, IInitializable
     /// <summary>
     /// Gets statistics about spawned balls
     /// </summary>
+    /// 
     public string GetSpawnStatistics()
     {
+        // NOTE: This is being called every frame by the Editor script!
         BallMovement[] allBalls = FindObjectsOfType<BallMovement>();
         return $"Total Balls: {allBalls.Length}";
     }

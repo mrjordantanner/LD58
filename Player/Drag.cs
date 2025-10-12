@@ -39,12 +39,6 @@ public class Drag : MonoBehaviour
         originalDrag = rb.drag;
         originalAngularDrag = rb.angularDrag;
         wasKinematic = rb.isKinematic;
-        
-        // Create drag line if enabled
-        if (PlayerManager.Instance.showDragLine)
-        {
-            CreateDragLine();
-        }
     }
 
     private void Update()
@@ -53,7 +47,6 @@ public class Drag : MonoBehaviour
 
         HandleMouseInput();
         UpdateDragPhysics();
-        UpdateDragLine();
         
         // Apply continuous deceleration if not dragging and moving
         if (!isDragging && PlayerManager.Instance.useDeceleration && rb != null && rb.velocity.magnitude > 0.1f)
@@ -234,52 +227,6 @@ public class Drag : MonoBehaviour
         // Simple layer check - you can expand this for more complex detection
         return (PlayerManager.Instance.dragLayerMask.value & (1 << gameObject.layer)) != 0;
     }
-
-    private void CreateDragLine()
-    {
-        GameObject lineObj = new GameObject("DragLine");
-        lineObj.transform.SetParent(transform);
-        lineObj.transform.localPosition = Vector3.zero;
-        
-        dragLine = lineObj.AddComponent<LineRenderer>();
-        dragLine.material = new Material(Shader.Find("Sprites/Default"));
-        //dragLine.color = PlayerManager.Instance.dragLineColor;
-        dragLine.startWidth = PlayerManager.Instance.dragLineWidth;
-        dragLine.endWidth = PlayerManager.Instance.dragLineWidth;
-        dragLine.positionCount = 2;
-        dragLine.enabled = false;
-        dragLine.sortingOrder = 10; // Render on top
-    }
-
-    private void UpdateDragLine()
-    {
-        if (dragLine == null) return;
-        
-        if (isDragging && PlayerManager.Instance.showDragLine)
-        {
-            dragLine.enabled = true;
-            dragLine.SetPosition(0, transform.position);
-            dragLine.SetPosition(1, mouseWorldPosition);
-            
-            // Update line color based on drag force and rest state
-            Color lineColor = PlayerManager.Instance.dragLineColor;
-            if (isAtRest)
-            {
-                lineColor = Color.green; // Green when at rest
-                lineColor.a = 0.5f;
-            }
-            else
-            {
-                lineColor.a = Mathf.Clamp01(currentDragForce / PlayerManager.Instance.maxDragForce);
-            }
-            //dragLine.color = lineColor;
-        }
-        else
-        {
-            dragLine.enabled = false;
-        }
-    }
-
     /// <summary>
     /// Force start dragging (useful for programmatic control)
     /// </summary>
@@ -334,13 +281,6 @@ public class Drag : MonoBehaviour
         // Draw drag range
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, PlayerManager.Instance.maxDragDistance);
-        
-        // Draw drag line if dragging
-        if (isDragging && Application.isPlaying)
-        {
-            Gizmos.color = PlayerManager.Instance.dragLineColor;
-            Gizmos.DrawLine(transform.position, targetPosition);
-        }
     }
 
     private void OnDestroy()
